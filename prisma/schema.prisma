@@ -1,0 +1,91 @@
+// Prisma schema for Stock Analyzer
+// Database: PostgreSQL (Railway)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  password    String
+  name        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  watchlists  Watchlist[]
+  history     SearchHistory[]
+  alerts      Alert[]
+  analyses    SavedAnalysis[]
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  ticker    String
+  name      String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ticker])
+  @@index([userId])
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  ticker    String
+  searchedAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, searchedAt])
+}
+
+model Alert {
+  id         String   @id @default(cuid())
+  userId     String
+  ticker     String
+  condition  String   // "above" | "below" | "cross_vwap" | "cross_support" | "cross_resistance"
+  price      Float
+  active     Boolean  @default(true)
+  triggered  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  triggeredAt DateTime?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, ticker])
+}
+
+// Historical analysis snapshots for later review
+model SavedAnalysis {
+  id                String   @id @default(cuid())
+  userId            String
+  ticker            String
+  price             Float
+  marketCap         Float?
+  float             Float?
+  shortInterest     Float?
+  daysToCover       Float?
+  relativeVolume    Float?
+  vwap              Float?
+  supports          Json?    // [number, number, number]
+  resistances       Json?    // [number, number, number]
+  pivotPoints       Json?    // { PP, R1, R2, R3, S1, S2, S3 }
+  squeezeScore      Int?
+  squeezeAnalysis   String?  // textual analysis
+  notes             String?
+  capturedAt        DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, ticker, capturedAt])
+}
