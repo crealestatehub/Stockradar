@@ -109,6 +109,10 @@ export default function CandleChart() {
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [chartH] = useState(() => {
+    if (typeof window === 'undefined') return 420;
+    return window.innerWidth < 768 ? 280 : 420;
+  });
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -162,7 +166,7 @@ export default function CandleChart() {
 
       const chart = createChart(chartRef.current!, {
         width: chartRef.current!.clientWidth,
-        height: 420,
+        height: chartH,
         layout: { background: { color: '#111722' }, textColor: '#8b96ad' },
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
@@ -252,7 +256,7 @@ export default function CandleChart() {
       // Volume Profile overlay
       const redrawVP = () => {
         if (indicators.showVolumeProfile && chartRef.current)
-          drawVolumeProfile(candleSeries, candles, chartRef.current, 420);
+          drawVolumeProfile(candleSeries, candles, chartRef.current, chartH);
         else
           chartRef.current?.querySelectorAll('.vp-canvas').forEach(el => el.remove());
       };
@@ -312,9 +316,9 @@ export default function CandleChart() {
           </div>
         )}
         {error && !loading && (
-          <div className="h-[420px] flex items-center justify-center text-[var(--text-muted)] text-sm">{error}</div>
+          <div style={{ height: chartH }} className="flex items-center justify-center text-[var(--text-muted)] text-sm">{error}</div>
         )}
-        <div ref={chartRef} id="chart-container" style={{ height: 420 }} />
+        <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
       </div>
     </div>
   );

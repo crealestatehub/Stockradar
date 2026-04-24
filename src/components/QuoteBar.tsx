@@ -103,14 +103,14 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
           }`}
         >
           {isWatched ? <Star size={12} fill="currentColor" /> : <StarOff size={12} />}
-          {isWatched ? 'Guardado' : 'Watchlist'}
+          <span className="hidden sm:inline">{isWatched ? 'Guardado' : 'Watchlist'}</span>
         </button>
         {onSaveAnalysis && user && (
           <button
             onClick={onSaveAnalysis}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-[var(--border)] text-[var(--text-muted)] hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
           >
-            <Save size={12} /> Guardar análisis
+            <Save size={12} /><span className="hidden sm:inline"> Guardar análisis</span>
           </button>
         )}
       </div>

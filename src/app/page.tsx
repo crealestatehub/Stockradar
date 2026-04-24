@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart2, User, LogOut, LogIn, AlertCircle, X } from 'lucide-react';
+import { BarChart2, User, LogOut, LogIn, AlertCircle, X, Star } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import SearchBar from '@/components/SearchBar';
 import CandleChart from '@/components/CandleChart';
@@ -16,7 +16,7 @@ interface FundSnapshot {
 }
 
 export default function Dashboard() {
-  const { user, setUser, setAuthModal, authModal, ticker } = useStore();
+  const { user, setUser, setAuthModal, authModal, ticker, sidebarOpen, setSidebarOpen } = useStore();
   const [fundSnapshot, setFundSnapshot] = useState<FundSnapshot | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
@@ -98,7 +98,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg)]">
+    <div className="flex flex-col h-screen bg-[var(--bg)] overflow-hidden">
       {/* ─── TOPBAR ─────────────────────────────────────────────── */}
       <header className="flex items-center gap-3 px-4 h-12 border-b border-[var(--border)] bg-[var(--bg-elevated)] flex-shrink-0">
         {/* Logo */}
@@ -112,9 +112,18 @@ export default function Dashboard() {
         <div className="w-px h-5 bg-[var(--border)] flex-shrink-0" />
 
         {/* Ticker badge */}
-        <span className="font-mono font-bold text-sm text-[var(--text)] bg-[var(--bg-surface)] px-2 py-0.5 rounded border border-[var(--border)] flex-shrink-0">
+        <span className="font-mono font-bold text-sm text-[var(--text)] bg-[var(--bg-surface)] px-2 py-0.5 rounded border border-[var(--border)] flex-shrink-0 hidden sm:inline">
           {ticker}
         </span>
+
+        {/* Mobile watchlist toggle */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-amber-500/30 hover:bg-amber-500/10 transition-colors flex-shrink-0"
+          title="Watchlist"
+        >
+          <Star size={13} className={sidebarOpen ? 'text-amber-400' : 'text-[var(--text-muted)]'} />
+        </button>
 
         {/* Search */}
         <div className="flex-1 max-w-sm">
