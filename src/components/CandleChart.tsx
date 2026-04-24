@@ -34,7 +34,7 @@ export default function CandleChart() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/stock/candles?symbol=${ticker}&resolution=${resolution}&pivot=${pivotType}`, { signal });
+      const res = await fetch(`/api/stock/candles?symbol=${ticker}&resolution=${resolution}&pivot=${pivotType}`, { signal, cache: 'no-store' });
       if (signal?.aborted) return;
       const data = await res.json();
       setCandles(data.candles || []);
