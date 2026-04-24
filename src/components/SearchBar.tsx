@@ -72,6 +72,7 @@ export default function SearchBar() {
           value={query}
           onChange={e => { setQuery(e.target.value.toUpperCase()); setOpen(true); }}
           onFocus={() => setOpen(true)}
+          onKeyDown={e => { if (e.key === 'Enter' && query.trim()) select(query.trim()); }}
           placeholder={ticker || 'Buscar ticker...'}
           className="flex-1 bg-transparent text-[var(--text)] text-sm font-mono placeholder:text-[var(--text-dim)] outline-none"
         />
