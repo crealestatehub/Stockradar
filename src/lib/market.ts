@@ -123,13 +123,38 @@ export async function getQuote(symbol: string): Promise<Quote | null> {
 // ---------------------------------------------------------------------------
 export type Resolution = '1' | '5' | '15' | '60' | 'D' | 'W';
 
+// FMP historical daily/weekly candles (free plan supports this)
+async function getFMPCandles(symbol: string, fromUnix: number, toUnix: number): Promise<Candle[]> {
+  if (!FMP_KEY) return [];
+  const fromDate = new Date(fromUnix * 1000).toISOString().split('T')[0];
+  const toDate   = new Date(toUnix   * 1000).toISOString().split('T')[0];
+  const { data } = await axios.get(`${FMP_BASE}/historical-price-full/${symbol}`, {
+    params: { from: fromDate, to: toDate, apikey: FMP_KEY },
+    timeout: 10000
+  });
+  if (!data.historical?.length) return [];
+  return (data.historical as any[])
+    .map((d) => ({
+      time:   Math.floor(new Date(d.date).getTime() / 1000),
+      open:   d.open,
+      high:   d.high,
+      low:    d.low,
+      close:  d.adjClose ?? d.close,
+      volume: d.volume
+    }))
+    .sort((a, b) => a.time - b.time);
+}
+
 export async function getCandles(
   symbol: string,
   resolution: Resolution,
   fromUnix: number,
   toUnix: number
 ): Promise<Candle[]> {
-  const key = `candles:${symbol}:${resolution}:${fromUnix}:${toUnix}`;
+  // Round cache key to nearest minute to improve hit rate
+  const roundedFrom = Math.floor(fromUnix / 60) * 60;
+  const roundedTo   = Math.floor(toUnix   / 60) * 60;
+  const key = `candles:${symbol}:${resolution}:${roundedFrom}:${roundedTo}`;
   const cached = getCache<Candle[]>(key);
   if (cached) return cached;
 
@@ -139,35 +164,36 @@ export async function getCandles(
     return candles;
   }
 
+  const ttl = resolution === 'D' || resolution === 'W' ? 300 : 30;
+
+  // Try Finnhub first
   try {
     const { data } = await axios.get(`${FINNHUB_BASE}/stock/candle`, {
-      params: {
-        symbol,
-        resolution,
-        from: fromUnix,
-        to: toUnix,
-        token: FINNHUB_KEY
-      },
+      params: { symbol, resolution, from: fromUnix, to: toUnix, token: FINNHUB_KEY },
       timeout: 10000
     });
-    if (data.s !== 'ok') {
-      // free tier often returns no_data; fall back to demo-shaped generator so UI still works
-      return demoCandles(symbol, resolution, fromUnix, toUnix);
+    if (data.s === 'ok' && data.t?.length) {
+      const candles: Candle[] = data.t.map((t: number, i: number) => ({
+        time: t, open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]
+      }));
+      setCache(key, candles, ttl);
+      return candles;
     }
-    const candles: Candle[] = data.t.map((t: number, i: number) => ({
-      time: t,
-      open: data.o[i],
-      high: data.h[i],
-      low: data.l[i],
-      close: data.c[i],
-      volume: data.v[i]
-    }));
-    const ttl = resolution === 'D' || resolution === 'W' ? 300 : 30;
-    setCache(key, candles, ttl);
-    return candles;
-  } catch {
-    return demoCandles(symbol, resolution, fromUnix, toUnix);
+  } catch {}
+
+  // Finnhub failed or returned no data — try FMP for daily/weekly
+  if (resolution === 'D' || resolution === 'W') {
+    try {
+      const candles = await getFMPCandles(symbol, fromUnix, toUnix);
+      if (candles.length) {
+        setCache(key, candles, ttl);
+        return candles;
+      }
+    } catch {}
   }
+
+  // Last resort: demo data
+  return demoCandles(symbol, resolution, fromUnix, toUnix);
 }
 
 // ---------------------------------------------------------------------------
