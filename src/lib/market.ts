@@ -395,6 +395,19 @@ function demoCandles(symbol: string, res: Resolution, from: number, to: number):
     });
     price = close;
   }
+
+  // Scale all candles so the last close matches basePrice (keeps chart in sync with quote)
+  if (out.length > 0) {
+    const lastClose = out[out.length - 1].close;
+    const scale = basePrice / lastClose;
+    for (const c of out) {
+      c.open  = +Math.max(0.01, c.open  * scale).toFixed(2);
+      c.high  = +Math.max(0.01, c.high  * scale).toFixed(2);
+      c.low   = +Math.max(0.01, c.low   * scale).toFixed(2);
+      c.close = +Math.max(0.01, c.close * scale).toFixed(2);
+    }
+  }
+
   return out;
 }
 
