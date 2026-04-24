@@ -7,4 +7,4 @@ npx prisma migrate deploy --schema=./prisma/schema.prisma 2>/dev/null || \
   echo "⚠️  Migration warning (may already be up to date)"
 
 echo "🚀 Starting StockRadar..."
-exec node server.js
+exec npx next start -p ${PORT:-3000}
