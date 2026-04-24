@@ -105,6 +105,8 @@ export default function CandleChart() {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
   const seriesRefs = useRef<Record<string, any>>({});
+  const rsiRef = useRef<HTMLDivElement>(null);
+  const macdRef = useRef<HTMLDivElement>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
@@ -255,6 +257,72 @@ export default function CandleChart() {
 
       chart.timeScale().fitContent();
 
+      // ── RSI sub-chart ────────────────────────────────────────────
+      let rsiChart: any = null;
+      if (indicators.showRSI && indData?.rsi?.length && rsiRef.current) {
+        rsiChart = createChart(rsiRef.current, {
+          width: rsiRef.current.clientWidth,
+          height: 120,
+          layout: { background: { color: '#111722' }, textColor: '#8b96ad' },
+          grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
+          crosshair: { mode: CrosshairMode.Normal },
+          rightPriceScale: { borderColor: '#212a3b' },
+          timeScale: { borderColor: '#212a3b', timeVisible: false },
+        });
+        const rsiSeries = rsiChart.addLineSeries({ color: '#e879f9', lineWidth: 1, priceFormat: { type: 'price', precision: 1 } });
+        const rsiData = candles
+          .map((c, i) => ({ time: c.time as any, value: indData.rsi[i] }))
+          .filter(d => typeof d.value === 'number' && isFinite(d.value) && d.value > 0 && d.value <= 100);
+        rsiSeries.setData(rsiData);
+        rsiSeries.createPriceLine({ price: 70, color: '#ff4d4f80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '70' });
+        rsiSeries.createPriceLine({ price: 30, color: '#00d97e80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '30' });
+        rsiSeries.createPriceLine({ price: 50, color: '#8b96ad30', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false, title: '' });
+      }
+
+      // ── MACD sub-chart ───────────────────────────────────────────
+      let macdChart: any = null;
+      if (indicators.showMACD && indData?.macd?.macd?.length && macdRef.current) {
+        macdChart = createChart(macdRef.current, {
+          width: macdRef.current.clientWidth,
+          height: 120,
+          layout: { background: { color: '#111722' }, textColor: '#8b96ad' },
+          grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
+          crosshair: { mode: CrosshairMode.Normal },
+          rightPriceScale: { borderColor: '#212a3b' },
+          timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false },
+        });
+        const histSeries = macdChart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'price', precision: 4 } });
+        histSeries.setData(
+          candles
+            .map((c, i) => ({ time: c.time as any, value: indData.macd.histogram[i] ?? 0, color: (indData.macd.histogram[i] ?? 0) >= 0 ? '#00d97e55' : '#ff4d4f55' }))
+            .filter(d => isFinite(d.value))
+        );
+        const macdLine = macdChart.addLineSeries({ color: '#06b6d4', lineWidth: 1, title: 'MACD' });
+        macdLine.setData(
+          candles
+            .map((c, i) => ({ time: c.time as any, value: indData.macd.macd[i] }))
+            .filter(d => typeof d.value === 'number' && isFinite(d.value))
+        );
+        const signalLine = macdChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, title: 'Signal' });
+        signalLine.setData(
+          candles
+            .map((c, i) => ({ time: c.time as any, value: indData.macd.signal[i] }))
+            .filter(d => typeof d.value === 'number' && isFinite(d.value))
+        );
+      }
+
+      // ── Sync time scales (main → sub-charts, bidirectional) ──────
+      const subCharts = [rsiChart, macdChart].filter(Boolean);
+      let syncing = false;
+      const syncFrom = (source: any, range: any) => {
+        if (syncing || range === null) return;
+        syncing = true;
+        [chart, ...subCharts].forEach(c => { if (c !== source) c.timeScale().setVisibleLogicalRange(range); });
+        syncing = false;
+      };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
+      subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
+
       // Volume Profile overlay
       const redrawVP = () => {
         if (indicators.showVolumeProfile && chartRef.current)
@@ -272,10 +340,12 @@ export default function CandleChart() {
           chart.applyOptions({ width: chartRef.current.clientWidth });
           redrawVP();
         }
+        if (rsiRef.current && rsiChart) rsiChart.applyOptions({ width: rsiRef.current.clientWidth });
+        if (macdRef.current && macdChart) macdChart.applyOptions({ width: macdRef.current.clientWidth });
       });
       if (chartRef.current) ro.observe(chartRef.current);
 
-      return () => { ro.disconnect(); chart.remove(); };
+      return () => { ro.disconnect(); try { chart.remove(); } catch {} rsiChart?.remove(); macdChart?.remove(); };
     };
 
     const cleanup = setupChart().catch(() => {});
@@ -322,6 +392,22 @@ export default function CandleChart() {
         )}
         <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
       </div>
+
+      {/* RSI sub-chart */}
+      {indicators.showRSI && (
+        <div className="border-t border-[var(--border)] relative bg-[#111722]">
+          <span className="absolute top-1.5 left-14 text-[10px] font-mono text-[var(--text-dim)] z-10 pointer-events-none select-none">RSI 14</span>
+          <div ref={rsiRef} style={{ height: 120 }} />
+        </div>
+      )}
+
+      {/* MACD sub-chart */}
+      {indicators.showMACD && (
+        <div className="border-t border-[var(--border)] relative bg-[#111722]">
+          <span className="absolute top-1.5 left-14 text-[10px] font-mono text-[var(--text-dim)] z-10 pointer-events-none select-none">MACD (12,26,9)</span>
+          <div ref={macdRef} style={{ height: 120 }} />
+        </div>
+      )}
     </div>
   );
 }
