@@ -300,7 +300,7 @@ const DEMO_STOCKS: { symbol: string; description: string; exchange: string; pric
   { symbol: 'BA',    description: 'Boeing Company',                        exchange: 'NYSE',   price: 175  },
   { symbol: 'DIS',   description: 'The Walt Disney Company',               exchange: 'NYSE',   price: 97   },
   { symbol: 'JPM',   description: 'JPMorgan Chase & Co.',                  exchange: 'NYSE',   price: 240  },
-  { symbol: 'CAR',   description: 'Avis Budget Group, Inc.',               exchange: 'NASDAQ', price: 18   },
+  { symbol: 'CAR',   description: 'Avis Budget Group, Inc.',               exchange: 'NASDAQ', price: 229  },
   { symbol: 'UBER',  description: 'Uber Technologies, Inc.',               exchange: 'NYSE',   price: 76   },
   { symbol: 'LYFT',  description: 'Lyft, Inc.',                            exchange: 'NASDAQ', price: 13   },
   { symbol: 'RIVN',  description: 'Rivian Automotive, Inc.',               exchange: 'NASDAQ', price: 12   },
