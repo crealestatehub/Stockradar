@@ -323,6 +323,15 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
+      // For intraday resolutions fitContent() compresses all bars so tightly that
+      // lightweight-charts suppresses every tick label. Zoom to the last N bars so
+      // the time axis is readable. The sync above propagates the range to sub-charts.
+      const INTRADAY_WINDOW: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
+      const initBars = INTRADAY_WINDOW[resolution];
+      if (initBars && candles.length > initBars) {
+        chart.timeScale().setVisibleLogicalRange({ from: candles.length - initBars, to: candles.length + 2 });
+      }
+
       // Volume Profile overlay
       const redrawVP = () => {
         if (indicators.showVolumeProfile && chartRef.current)
