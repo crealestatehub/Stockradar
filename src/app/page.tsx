@@ -195,7 +195,7 @@ export default function Dashboard() {
         {/* Watchlist Sidebar */}
         <WatchlistSidebar />
 
-        {/* Center: chart + quote */}
+        {/* Center: chart + quote + panels */}
         <main className="flex-1 flex flex-col overflow-auto">
           <div className="flex-1 p-3 space-y-3 min-w-0">
             {/* Quote bar */}
@@ -209,6 +209,12 @@ export default function Dashboard() {
             {/* Analysis history (collapsible) */}
             <AnalysisHistory />
 
+            {/* Fundamentals + Indicators below chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <FundamentalsPanel onSave={setFundSnapshot} />
+              <IndicatorPanel />
+            </div>
+
             {/* Disclaimer */}
             <div className="text-[10px] text-[var(--text-dim)] text-center leading-relaxed pb-2">
               ⚠️ <strong>Disclaimer:</strong> StockRadar es una herramienta informativa. No constituye asesoría financiera ni recomendación de inversión.
@@ -216,14 +222,6 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
-
-        {/* Right panel */}
-        <aside className="w-64 xl:w-72 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg-elevated)] overflow-y-auto">
-          <div className="p-3 space-y-3">
-            <FundamentalsPanel onSave={setFundSnapshot} />
-            <IndicatorPanel />
-          </div>
-        </aside>
       </div>
 
       {/* Auth modal */}
