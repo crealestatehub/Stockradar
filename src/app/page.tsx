@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart2, User, LogOut, LogIn, AlertCircle, X, Star } from 'lucide-react';
+import { BarChart2, User, LogOut, LogIn, AlertCircle, X, Star, SlidersHorizontal } from 'lucide-react';
+import Link from 'next/link';
 import { useStore } from '@/lib/store';
 import SearchBar from '@/components/SearchBar';
 import CandleChart from '@/components/CandleChart';
@@ -145,6 +146,15 @@ export default function Dashboard() {
             {saveMsg}
           </div>
         )}
+
+        {/* Screener link */}
+        <Link
+          href="/screener"
+          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10 transition-all text-xs"
+        >
+          <SlidersHorizontal size={12} />
+          <span className="hidden md:block">Screener</span>
+        </Link>
 
         {/* Alert button */}
         <button
