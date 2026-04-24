@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart2, User, LogOut, LogIn, AlertCircle, X, Star, SlidersHorizontal } from 'lucide-react';
-import Link from 'next/link';
+import { BarChart2, User, LogOut, LogIn, AlertCircle, X, Star } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import SearchBar from '@/components/SearchBar';
 import CandleChart from '@/components/CandleChart';
@@ -11,6 +10,7 @@ import IndicatorPanel from '@/components/IndicatorPanel';
 import WatchlistSidebar from '@/components/WatchlistSidebar';
 import AuthModal from '@/components/AuthModal';
 import AnalysisHistory from '@/components/AnalysisHistory';
+import ScreenerPanel from '@/components/ScreenerPanel';
 
 interface FundSnapshot {
   fundamentals: any; metrics: any; squeeze: any; quote?: any;
@@ -147,15 +147,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Screener link */}
-        <Link
-          href="/screener"
-          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-blue-500/30 hover:text-blue-400 hover:bg-blue-500/10 transition-all text-xs"
-        >
-          <SlidersHorizontal size={12} />
-          <span className="hidden md:block">Screener</span>
-        </Link>
-
         {/* Alert button */}
         <button
           onClick={() => setAlertOpen(!alertOpen)}
@@ -230,6 +221,9 @@ export default function Dashboard() {
 
             {/* Analysis history (collapsible) */}
             <AnalysisHistory />
+
+            {/* Short Squeeze Screener (collapsible) */}
+            <ScreenerPanel />
 
             {/* Fundamentals + Indicators — below chart on < xl screens */}
             {!isXL && (
