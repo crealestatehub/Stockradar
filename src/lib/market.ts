@@ -279,57 +279,57 @@ function seededRandom(seed: number) {
   };
 }
 
-const DEMO_STOCKS = [
-  { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ' },
-  { symbol: 'MSFT', description: 'Microsoft Corporation', exchange: 'NASDAQ' },
-  { symbol: 'NVDA', description: 'NVIDIA Corporation', exchange: 'NASDAQ' },
-  { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'AMZN', description: 'Amazon.com, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'META', description: 'Meta Platforms, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'GOOGL', description: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
-  { symbol: 'GME', description: 'GameStop Corp.', exchange: 'NYSE' },
-  { symbol: 'AMC', description: 'AMC Entertainment Holdings', exchange: 'NYSE' },
-  { symbol: 'BBBY', description: 'Bed Bath & Beyond Inc.', exchange: 'NASDAQ' },
-  { symbol: 'PLTR', description: 'Palantir Technologies Inc.', exchange: 'NYSE' },
-  { symbol: 'COIN', description: 'Coinbase Global, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'SPY', description: 'SPDR S&P 500 ETF Trust', exchange: 'NYSE' },
-  { symbol: 'QQQ', description: 'Invesco QQQ Trust', exchange: 'NASDAQ' },
-  { symbol: 'NFLX', description: 'Netflix, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'AMD', description: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'INTC', description: 'Intel Corporation', exchange: 'NASDAQ' },
-  { symbol: 'BA', description: 'Boeing Company', exchange: 'NYSE' },
-  { symbol: 'DIS', description: 'The Walt Disney Company', exchange: 'NYSE' },
-  { symbol: 'JPM', description: 'JPMorgan Chase & Co.', exchange: 'NYSE' },
-  { symbol: 'CAR', description: 'Avis Budget Group, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'UBER', description: 'Uber Technologies, Inc.', exchange: 'NYSE' },
-  { symbol: 'LYFT', description: 'Lyft, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'RIVN', description: 'Rivian Automotive, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'LCID', description: 'Lucid Group, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'F', description: 'Ford Motor Company', exchange: 'NYSE' },
-  { symbol: 'GM', description: 'General Motors Company', exchange: 'NYSE' },
-  { symbol: 'SOFI', description: 'SoFi Technologies, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'HOOD', description: 'Robinhood Markets, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'MARA', description: 'MARA Holdings, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'CLSK', description: 'CleanSpark, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'RIOT', description: 'Riot Platforms, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'SMCI', description: 'Super Micro Computer, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'ARM', description: 'Arm Holdings plc', exchange: 'NASDAQ' },
-  { symbol: 'IONQ', description: 'IonQ, Inc.', exchange: 'NYSE' },
-  { symbol: 'RGTI', description: 'Rigetti Computing, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'QBTS', description: 'D-Wave Quantum Inc.', exchange: 'NYSE' },
-  { symbol: 'CRWD', description: 'CrowdStrike Holdings, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'PANW', description: 'Palo Alto Networks, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'NET', description: 'Cloudflare, Inc.', exchange: 'NYSE' },
-  { symbol: 'SNOW', description: 'Snowflake Inc.', exchange: 'NYSE' },
-  { symbol: 'DDOG', description: 'Datadog, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'MU', description: 'Micron Technology, Inc.', exchange: 'NASDAQ' },
-  { symbol: 'QCOM', description: 'QUALCOMM Incorporated', exchange: 'NASDAQ' },
-  { symbol: 'AVGO', description: 'Broadcom Inc.', exchange: 'NASDAQ' },
-  { symbol: 'TSM', description: 'Taiwan Semiconductor Manufacturing', exchange: 'NYSE' },
-  { symbol: 'WMT', description: 'Walmart Inc.', exchange: 'NYSE' },
-  { symbol: 'COST', description: 'Costco Wholesale Corporation', exchange: 'NASDAQ' },
-  { symbol: 'TGT', description: 'Target Corporation', exchange: 'NYSE' },
-  { symbol: 'GS', description: 'Goldman Sachs Group, Inc.', exchange: 'NYSE' },
+const DEMO_STOCKS: { symbol: string; description: string; exchange: string; price: number }[] = [
+  { symbol: 'AAPL',  description: 'Apple Inc.',                            exchange: 'NASDAQ', price: 207  },
+  { symbol: 'MSFT',  description: 'Microsoft Corporation',                 exchange: 'NASDAQ', price: 415  },
+  { symbol: 'NVDA',  description: 'NVIDIA Corporation',                    exchange: 'NASDAQ', price: 875  },
+  { symbol: 'TSLA',  description: 'Tesla, Inc.',                           exchange: 'NASDAQ', price: 175  },
+  { symbol: 'AMZN',  description: 'Amazon.com, Inc.',                      exchange: 'NASDAQ', price: 198  },
+  { symbol: 'META',  description: 'Meta Platforms, Inc.',                  exchange: 'NASDAQ', price: 510  },
+  { symbol: 'GOOGL', description: 'Alphabet Inc. Class A',                 exchange: 'NASDAQ', price: 168  },
+  { symbol: 'GME',   description: 'GameStop Corp.',                        exchange: 'NYSE',   price: 28   },
+  { symbol: 'AMC',   description: 'AMC Entertainment Holdings',            exchange: 'NYSE',   price: 3.5  },
+  { symbol: 'BBBY',  description: 'Bed Bath & Beyond Inc.',                exchange: 'NASDAQ', price: 0.08 },
+  { symbol: 'PLTR',  description: 'Palantir Technologies Inc.',            exchange: 'NYSE',   price: 118  },
+  { symbol: 'COIN',  description: 'Coinbase Global, Inc.',                 exchange: 'NASDAQ', price: 205  },
+  { symbol: 'SPY',   description: 'SPDR S&P 500 ETF Trust',               exchange: 'NYSE',   price: 536  },
+  { symbol: 'QQQ',   description: 'Invesco QQQ Trust',                     exchange: 'NASDAQ', price: 461  },
+  { symbol: 'NFLX',  description: 'Netflix, Inc.',                         exchange: 'NASDAQ', price: 975  },
+  { symbol: 'AMD',   description: 'Advanced Micro Devices, Inc.',          exchange: 'NASDAQ', price: 105  },
+  { symbol: 'INTC',  description: 'Intel Corporation',                     exchange: 'NASDAQ', price: 21   },
+  { symbol: 'BA',    description: 'Boeing Company',                        exchange: 'NYSE',   price: 175  },
+  { symbol: 'DIS',   description: 'The Walt Disney Company',               exchange: 'NYSE',   price: 97   },
+  { symbol: 'JPM',   description: 'JPMorgan Chase & Co.',                  exchange: 'NYSE',   price: 240  },
+  { symbol: 'CAR',   description: 'Avis Budget Group, Inc.',               exchange: 'NASDAQ', price: 18   },
+  { symbol: 'UBER',  description: 'Uber Technologies, Inc.',               exchange: 'NYSE',   price: 76   },
+  { symbol: 'LYFT',  description: 'Lyft, Inc.',                            exchange: 'NASDAQ', price: 13   },
+  { symbol: 'RIVN',  description: 'Rivian Automotive, Inc.',               exchange: 'NASDAQ', price: 12   },
+  { symbol: 'LCID',  description: 'Lucid Group, Inc.',                     exchange: 'NASDAQ', price: 2.5  },
+  { symbol: 'F',     description: 'Ford Motor Company',                    exchange: 'NYSE',   price: 10   },
+  { symbol: 'GM',    description: 'General Motors Company',                exchange: 'NYSE',   price: 47   },
+  { symbol: 'SOFI',  description: 'SoFi Technologies, Inc.',               exchange: 'NASDAQ', price: 13   },
+  { symbol: 'HOOD',  description: 'Robinhood Markets, Inc.',               exchange: 'NASDAQ', price: 43   },
+  { symbol: 'MARA',  description: 'MARA Holdings, Inc.',                   exchange: 'NASDAQ', price: 15   },
+  { symbol: 'CLSK',  description: 'CleanSpark, Inc.',                      exchange: 'NASDAQ', price: 11   },
+  { symbol: 'RIOT',  description: 'Riot Platforms, Inc.',                  exchange: 'NASDAQ', price: 9    },
+  { symbol: 'SMCI',  description: 'Super Micro Computer, Inc.',            exchange: 'NASDAQ', price: 40   },
+  { symbol: 'ARM',   description: 'Arm Holdings plc',                      exchange: 'NASDAQ', price: 130  },
+  { symbol: 'IONQ',  description: 'IonQ, Inc.',                            exchange: 'NYSE',   price: 35   },
+  { symbol: 'RGTI',  description: 'Rigetti Computing, Inc.',               exchange: 'NASDAQ', price: 10   },
+  { symbol: 'QBTS',  description: 'D-Wave Quantum Inc.',                   exchange: 'NYSE',   price: 8    },
+  { symbol: 'CRWD',  description: 'CrowdStrike Holdings, Inc.',            exchange: 'NASDAQ', price: 390  },
+  { symbol: 'PANW',  description: 'Palo Alto Networks, Inc.',              exchange: 'NASDAQ', price: 185  },
+  { symbol: 'NET',   description: 'Cloudflare, Inc.',                      exchange: 'NYSE',   price: 116  },
+  { symbol: 'SNOW',  description: 'Snowflake Inc.',                        exchange: 'NYSE',   price: 155  },
+  { symbol: 'DDOG',  description: 'Datadog, Inc.',                         exchange: 'NASDAQ', price: 120  },
+  { symbol: 'MU',    description: 'Micron Technology, Inc.',               exchange: 'NASDAQ', price: 93   },
+  { symbol: 'QCOM',  description: 'QUALCOMM Incorporated',                 exchange: 'NASDAQ', price: 155  },
+  { symbol: 'AVGO',  description: 'Broadcom Inc.',                         exchange: 'NASDAQ', price: 195  },
+  { symbol: 'TSM',   description: 'Taiwan Semiconductor Manufacturing',    exchange: 'NYSE',   price: 165  },
+  { symbol: 'WMT',   description: 'Walmart Inc.',                          exchange: 'NYSE',   price: 97   },
+  { symbol: 'COST',  description: 'Costco Wholesale Corporation',          exchange: 'NASDAQ', price: 905  },
+  { symbol: 'TGT',   description: 'Target Corporation',                    exchange: 'NYSE',   price: 100  },
+  { symbol: 'GS',    description: 'Goldman Sachs Group, Inc.',             exchange: 'NYSE',   price: 565  },
 ];
 
 function demoSearchSymbols(q: string): SymbolMatch[] {
@@ -341,9 +341,13 @@ function demoSearchSymbols(q: string): SymbolMatch[] {
   ).map((s) => ({ ...s, type: 'Common Stock' }));
 }
 
+function demoPriceFor(symbol: string): number {
+  return DEMO_STOCKS.find((s) => s.symbol === symbol)?.price ?? (50 + (hash(symbol) % 200));
+}
+
 function demoQuote(symbol: string): Quote {
   const rng = seededRandom(hash(symbol) + Math.floor(Date.now() / 60000));
-  const base = 50 + (hash(symbol) % 500);
+  const base = demoPriceFor(symbol);
   const changePct = (rng() - 0.5) * 8;
   const change = base * (changePct / 100);
   const current = base + change;
@@ -370,7 +374,7 @@ function demoCandles(symbol: string, res: Resolution, from: number, to: number):
     res === 'D' ? 86400 :
     604800;
   const count = Math.min(400, Math.max(50, Math.floor((to - from) / stepSeconds)));
-  const basePrice = 50 + (hash(symbol) % 500);
+  const basePrice = demoPriceFor(symbol);
   let price = basePrice;
   const out: Candle[] = [];
   const startTime = to - count * stepSeconds;
@@ -399,7 +403,7 @@ function demoFundamentals(symbol: string): Fundamentals {
   const sharesOutstanding = Math.floor((10 + rng() * 2000) * 1_000_000);
   const floatPct = 0.5 + rng() * 0.45;
   const float = Math.floor(sharesOutstanding * floatPct);
-  const price = 50 + (hash(symbol) % 500);
+  const price = demoPriceFor(symbol);
   return {
     symbol,
     name: DEMO_STOCKS.find((s) => s.symbol === symbol)?.description || `${symbol} Corp.`,
