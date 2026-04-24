@@ -123,26 +123,32 @@ export async function getQuote(symbol: string): Promise<Quote | null> {
 // ---------------------------------------------------------------------------
 export type Resolution = '1' | '5' | '15' | '60' | 'D' | 'W';
 
-// FMP historical daily/weekly candles (free plan supports this)
-async function getFMPCandles(symbol: string, fromUnix: number, toUnix: number): Promise<Candle[]> {
-  if (!FMP_KEY) return [];
-  const fromDate = new Date(fromUnix * 1000).toISOString().split('T')[0];
-  const toDate   = new Date(toUnix   * 1000).toISOString().split('T')[0];
-  const { data } = await axios.get(`${FMP_BASE}/historical-price-full/${symbol}`, {
-    params: { from: fromDate, to: toDate, apikey: FMP_KEY },
+const YAHOO_BASE = 'https://query2.finance.yahoo.com/v8/finance/chart';
+
+const YAHOO_INTERVAL: Record<Resolution, string> = {
+  '1': '1m', '5': '5m', '15': '15m', '60': '60m', 'D': '1d', 'W': '1wk'
+};
+
+async function getYahooCandles(symbol: string, resolution: Resolution, fromUnix: number, toUnix: number): Promise<Candle[]> {
+  const interval = YAHOO_INTERVAL[resolution];
+  const { data } = await axios.get(`${YAHOO_BASE}/${symbol}`, {
+    params: { interval, period1: fromUnix, period2: toUnix, includeAdjustedClose: true },
+    headers: { 'User-Agent': 'Mozilla/5.0' },
     timeout: 10000
   });
-  if (!data.historical?.length) return [];
-  return (data.historical as any[])
-    .map((d) => ({
-      time:   Math.floor(new Date(d.date).getTime() / 1000),
-      open:   d.open,
-      high:   d.high,
-      low:    d.low,
-      close:  d.adjClose ?? d.close,
-      volume: d.volume
-    }))
-    .sort((a, b) => a.time - b.time);
+  const result = data?.chart?.result?.[0];
+  if (!result?.timestamp?.length) return [];
+  const timestamps: number[] = result.timestamp;
+  const quote = result.indicators.quote[0];
+  const adjClose: number[] = result.indicators.adjclose?.[0]?.adjclose ?? quote.close;
+  return timestamps.map((t, i) => ({
+    time:   t,
+    open:   +( quote.open[i]   ?? 0).toFixed(4),
+    high:   +( quote.high[i]   ?? 0).toFixed(4),
+    low:    +( quote.low[i]    ?? 0).toFixed(4),
+    close:  +( adjClose[i]     ?? quote.close[i] ?? 0).toFixed(4),
+    volume: Math.round(quote.volume[i] ?? 0)
+  })).filter(c => c.close > 0);
 }
 
 export async function getCandles(
@@ -166,7 +172,16 @@ export async function getCandles(
 
   const ttl = resolution === 'D' || resolution === 'W' ? 300 : 30;
 
-  // Try Finnhub first
+  // Yahoo Finance — free, no key required, split-adjusted
+  try {
+    const candles = await getYahooCandles(symbol, resolution, fromUnix, toUnix);
+    if (candles.length) {
+      setCache(key, candles, ttl);
+      return candles;
+    }
+  } catch {}
+
+  // Yahoo failed — try Finnhub (works if user has paid plan)
   try {
     const { data } = await axios.get(`${FINNHUB_BASE}/stock/candle`, {
       params: { symbol, resolution, from: fromUnix, to: toUnix, token: FINNHUB_KEY },
@@ -180,17 +195,6 @@ export async function getCandles(
       return candles;
     }
   } catch {}
-
-  // Finnhub failed or returned no data — try FMP for daily/weekly
-  if (resolution === 'D' || resolution === 'W') {
-    try {
-      const candles = await getFMPCandles(symbol, fromUnix, toUnix);
-      if (candles.length) {
-        setCache(key, candles, ttl);
-        return candles;
-      }
-    } catch {}
-  }
 
   // Last resort: demo data
   return demoCandles(symbol, resolution, fromUnix, toUnix);
