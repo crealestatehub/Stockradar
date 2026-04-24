@@ -111,7 +111,9 @@ export default function CandleChart() {
   const [error, setError] = useState('');
   const [chartH] = useState(() => {
     if (typeof window === 'undefined') return 420;
-    return window.innerWidth < 768 ? 280 : 420;
+    if (window.innerWidth < 768) return 280;
+    if (window.innerWidth >= 1280) return 480;
+    return 420;
   });
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {

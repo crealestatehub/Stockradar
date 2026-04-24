@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [alertPrice, setAlertPrice] = useState('');
   const [alertCond, setAlertCond] = useState('above');
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isXL, setIsXL] = useState(false);
 
   // Check demo mode
   useEffect(() => {
@@ -44,6 +45,8 @@ export default function Dashboard() {
       if (d.user) setUser(d.user);
     }).catch(() => {});
   }, [setUser]);
+
+  useEffect(() => { setIsXL(window.innerWidth >= 1280); }, []);
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -204,9 +207,9 @@ export default function Dashboard() {
         {/* Watchlist Sidebar */}
         <WatchlistSidebar />
 
-        {/* Center: chart + quote + panels */}
-        <main className="flex-1 flex flex-col overflow-auto">
-          <div className="flex-1 p-3 space-y-3 min-w-0">
+        {/* Center: chart + quote */}
+        <main className="flex-1 flex flex-col overflow-auto min-w-0">
+          <div className="p-3 space-y-3 min-w-0">
             {/* Quote bar */}
             <div className="card px-4 py-3">
               <QuoteBar onSaveAnalysis={user ? saveAnalysis : undefined} />
@@ -218,11 +221,13 @@ export default function Dashboard() {
             {/* Analysis history (collapsible) */}
             <AnalysisHistory />
 
-            {/* Fundamentals + Indicators below chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <FundamentalsPanel onSave={setFundSnapshot} />
-              <IndicatorPanel />
-            </div>
+            {/* Fundamentals + Indicators — below chart on < xl screens */}
+            {!isXL && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <FundamentalsPanel onSave={setFundSnapshot} />
+                <IndicatorPanel />
+              </div>
+            )}
 
             {/* Disclaimer */}
             <div className="text-[10px] text-[var(--text-dim)] text-center leading-relaxed pb-2">
@@ -231,6 +236,16 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
+
+        {/* Right panel — xl+ (MacBook 15" and wider) */}
+        {isXL && (
+          <aside className="w-72 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg-elevated)] overflow-y-auto">
+            <div className="p-3 space-y-3">
+              <FundamentalsPanel onSave={setFundSnapshot} />
+              <IndicatorPanel />
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Auth modal */}
