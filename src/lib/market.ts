@@ -119,6 +119,30 @@ export async function getQuote(symbol: string): Promise<Quote | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Earnings Date (Yahoo Finance quoteSummary — free, no key required)
+// ---------------------------------------------------------------------------
+export async function getEarningsDate(symbol: string): Promise<string | null> {
+  const key = `earnings:${symbol}`;
+  const cached = getCache<string | null>(key);
+  if (cached !== null) return cached;
+
+  try {
+    const { data } = await axios.get(
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}`,
+      { params: { modules: 'calendarEvents' }, headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 }
+    );
+    const dates: { raw: number }[] =
+      data?.quoteSummary?.result?.[0]?.calendarEvents?.earnings?.earningsDate ?? [];
+    const next = dates.find(d => d.raw * 1000 >= Date.now());
+    const result = next ? new Date(next.raw * 1000).toISOString().split('T')[0] : null;
+    setCache(key, result, 3600);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Candles (OHLCV)
 // ---------------------------------------------------------------------------
 export type Resolution = '1' | '5' | '15' | '60' | 'D' | 'W';

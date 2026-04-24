@@ -10,7 +10,8 @@ interface FundData {
     shortInterestPct?: number; daysToCover?: number; avgVolume?: number;
     weekHigh52?: number; weekLow52?: number;
   };
-  metrics: { priceChangePct5d: number; relativeVolume: number };
+  metrics: { priceChangePct5d: number; relativeVolume: number; floatRotation: number };
+  earningsDate?: string | null;
   squeeze: {
     score: number; band: string; color: 'red' | 'amber' | 'green';
     breakdown: { float: number; shortInterest: number; daysToCover: number; rvol: number; momentum: number };
@@ -78,7 +79,15 @@ export default function FundamentalsPanel({ onSave }: { onSave?: (data: FundData
   );
 
   if (!data) return null;
-  const { fundamentals: f, metrics: m, squeeze: sq } = data;
+  const { fundamentals: f, metrics: m, squeeze: sq, earningsDate } = data;
+
+  // Earnings countdown
+  const earningsDaysAway = earningsDate
+    ? Math.round((new Date(earningsDate).getTime() - Date.now()) / 86400000)
+    : null;
+  const earningsLabel = earningsDate
+    ? `${earningsDate} (${earningsDaysAway === 0 ? 'hoy' : earningsDaysAway === 1 ? 'mañana' : `en ${earningsDaysAway}d`})`
+    : '—';
 
   const squeezeColor = sq.color;
   const scoreArc = Math.min(100, sq.score);
@@ -103,6 +112,9 @@ export default function FundamentalsPanel({ onSave }: { onSave?: (data: FundData
         <Row label="Vol. promedio 10D" value={fmtShares(f.avgVolume)} />
         <Row label="RVOL (Relative Volume)" value={m.relativeVolume > 0 ? `${m.relativeVolume.toFixed(2)}x` : '—'}
           colored={m.relativeVolume > 2 ? 'pos' : undefined} />
+        <Row label="Float Rotation" value={m.floatRotation > 0 ? `${m.floatRotation.toFixed(2)}x` : '—'}
+          tip="Veces que el float completo se ha negociado hoy"
+          colored={m.floatRotation >= 1 ? 'pos' : undefined} />
         <Row label="Short Interest" value={f.shortInterestPct != null ? `${f.shortInterestPct.toFixed(1)}%` : '—'}
           tip="% del float en posición corta" colored={f.shortInterestPct != null && f.shortInterestPct > 20 ? 'neg' : undefined} />
         <Row label="Days to Cover" value={f.daysToCover != null ? `${f.daysToCover.toFixed(1)}` : '—'}
@@ -111,6 +123,9 @@ export default function FundamentalsPanel({ onSave }: { onSave?: (data: FundData
           colored={m.priceChangePct5d > 0 ? 'pos' : m.priceChangePct5d < 0 ? 'neg' : undefined} />
         <Row label="Máximo 52 semanas" value={f.weekHigh52 != null ? `$${f.weekHigh52.toFixed(2)}` : '—'} />
         <Row label="Mínimo 52 semanas" value={f.weekLow52 != null ? `$${f.weekLow52.toFixed(2)}` : '—'} />
+        <Row label="Próx. Earnings" value={earningsLabel}
+          tip="Fecha de reporte de resultados — riesgo de squeeze para cortos"
+          colored={earningsDaysAway != null && earningsDaysAway <= 7 ? 'neg' : undefined} />
       </div>
 
       {/* Short Squeeze Score */}
