@@ -76,7 +76,7 @@ function drawVolumeProfile(
   canvas.className   = 'vp-canvas';
   canvas.width       = BAR_MAX_PX;
   canvas.height      = chartHeight;
-  canvas.style.cssText = `position:absolute;top:0;right:${PRICE_AXIS}px;pointer-events:none;z-index:4;`;
+  canvas.style.cssText = `position:absolute;top:0;left:0;pointer-events:none;z-index:4;`;
   container.appendChild(canvas);
 
   const ctx = canvas.getContext('2d')!;
@@ -96,7 +96,7 @@ function drawVolumeProfile(
       : vaSet.has(i) ? 'rgba(139,92,246,0.55)'  // purple — value area
                      : 'rgba(34,197,94,0.40)';  // green  — outside VA
 
-    ctx.fillRect(BAR_MAX_PX - barW, Math.round(yTop), barW, barH);
+    ctx.fillRect(0, Math.round(yTop), barW, barH);
   }
 }
 
