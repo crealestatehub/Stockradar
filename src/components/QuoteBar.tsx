@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Star, StarOff, Save } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { useRealtimeQuote } from '@/hooks/useRealtimeQuote';
 
 interface Quote {
   symbol: string; current: number; change: number; changePct: number;
@@ -16,6 +17,7 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
   const [loading, setLoading] = useState(true);
 
   const isWatched = watchlist.some(w => w.ticker === ticker);
+  const { trade, isLive } = useRealtimeQuote(ticker);
 
   const fetchQuote = useCallback(async () => {
     try {
@@ -42,7 +44,13 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
     }
   };
 
-  const positive = (quote?.changePct ?? 0) >= 0;
+  // Use WebSocket price when available, fall back to REST quote
+  const livePrice  = trade?.price ?? quote?.current ?? 0;
+  const baseClose  = quote?.prevClose ?? 0;
+  const liveChange = baseClose > 0 ? livePrice - baseClose : (quote?.change ?? 0);
+  const liveChangePct = baseClose > 0 ? (liveChange / baseClose) * 100 : (quote?.changePct ?? 0);
+
+  const positive = liveChangePct >= 0;
   const fmt = (n: number, dec = 2) => n?.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ',') ?? '—';
 
   if (loading) {
@@ -59,10 +67,12 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
     <div className="flex flex-wrap items-center gap-3 md:gap-5">
       {/* Price */}
       <div className="flex items-baseline gap-2">
-        <span className="font-mono text-2xl font-bold text-[var(--text)]">${fmt(quote?.current ?? 0)}</span>
+        <span className={`font-mono text-2xl font-bold transition-colors ${isLive && trade ? 'text-[var(--text)]' : 'text-[var(--text)]'}`}>
+          ${fmt(livePrice)}
+        </span>
         <div className={`flex items-center gap-1 text-sm font-mono font-semibold ${positive ? 'text-[var(--accent-green)]' : 'text-[var(--accent-red)]'}`}>
           {positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          {positive ? '+' : ''}{fmt(quote?.change ?? 0)} ({positive ? '+' : ''}{fmt(quote?.changePct ?? 0)}%)
+          {positive ? '+' : ''}{fmt(liveChange)} ({positive ? '+' : ''}{fmt(liveChangePct)}%)
         </div>
       </div>
 
@@ -76,8 +86,10 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
 
       {/* Live indicator */}
       <div className="flex items-center gap-1.5">
-        <span className="live-dot" />
-        <span className="text-[10px] font-mono text-[var(--text-dim)] uppercase tracking-wider">Live</span>
+        <span className={`live-dot ${isLive ? '' : 'opacity-40'}`} />
+        <span className="text-[10px] font-mono text-[var(--text-dim)] uppercase tracking-wider">
+          {isLive ? 'WS Live' : 'Live'}
+        </span>
       </div>
 
       {/* Actions */}
