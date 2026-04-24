@@ -30,26 +30,40 @@ export default function CandleChart() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/stock/candles?symbol=${ticker}&resolution=${resolution}&pivot=${pivotType}`);
+      const res = await fetch(`/api/stock/candles?symbol=${ticker}&resolution=${resolution}&pivot=${pivotType}`, { signal });
+      if (signal?.aborted) return;
       const data = await res.json();
       setCandles(data.candles || []);
       setIndData(data.indicators || null);
-    } catch {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
       setError('Error al cargar datos del gráfico');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [ticker, resolution, pivotType]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    // Clear stale data immediately so the old chart doesn't linger
+    setCandles([]);
+    setIndData(null);
+    if (chartInstance.current) {
+      try { chartInstance.current.remove(); } catch {}
+      chartInstance.current = null;
+      seriesRefs.current = {};
+    }
+    const ctrl = new AbortController();
+    fetchData(ctrl.signal);
+    return () => ctrl.abort();
+  }, [fetchData]);
 
   // Auto-refresh every 30s
   useEffect(() => {
-    const id = setInterval(fetchData, 30_000);
+    const id = setInterval(() => fetchData(), 30_000);
     return () => clearInterval(id);
   }, [fetchData]);
 
@@ -164,7 +178,7 @@ export default function CandleChart() {
       return () => { ro.disconnect(); chart.remove(); };
     };
 
-    const cleanup = setupChart();
+    const cleanup = setupChart().catch(() => {});
     return () => { cleanup.then(fn => fn?.()).catch(() => {}); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles, indData, indicators]);
