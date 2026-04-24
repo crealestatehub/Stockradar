@@ -20,6 +20,86 @@ const RESOLUTIONS: { label: string; value: Resolution }[] = [
   { label: '1H', value: '60' }, { label: '1D', value: 'D' }, { label: '1W', value: 'W' }
 ];
 
+// ── Volume Profile ────────────────────────────────────────────────────────────
+function drawVolumeProfile(
+  candleSeries: any,
+  candles: Candle[],
+  container: HTMLDivElement,
+  chartHeight: number
+) {
+  const BUCKETS    = 60;
+  const BAR_MAX_PX = 90;
+  const PRICE_AXIS = 58; // approximate width of right price scale
+
+  // Remove old canvas
+  container.querySelectorAll('.vp-canvas').forEach(el => el.remove());
+
+  if (!candles.length) return;
+
+  // Build volume buckets by price level
+  const minP = Math.min(...candles.map(c => c.low));
+  const maxP = Math.max(...candles.map(c => c.high));
+  if (maxP <= minP) return;
+
+  const bucketSize = (maxP - minP) / BUCKETS;
+  const volumes    = new Array(BUCKETS).fill(0);
+
+  for (const c of candles) {
+    for (let i = 0; i < BUCKETS; i++) {
+      const bLow  = minP + i * bucketSize;
+      const bHigh = bLow + bucketSize;
+      const overlap = Math.max(0, Math.min(c.high, bHigh) - Math.max(c.low, bLow));
+      if (overlap > 0) volumes[i] += c.volume * (overlap / Math.max(c.high - c.low, 0.001));
+    }
+  }
+
+  const maxVol  = Math.max(...volumes);
+  const totalVol = volumes.reduce((a, b) => a + b, 0);
+
+  // Point of Control (highest volume bucket)
+  const pocIdx = volumes.indexOf(maxVol);
+
+  // Value Area (68% of volume around POC)
+  let vaVol = volumes[pocIdx];
+  const vaSet = new Set([pocIdx]);
+  let hi = pocIdx, lo = pocIdx;
+  while (vaVol < totalVol * 0.68 && (hi < BUCKETS - 1 || lo > 0)) {
+    const upVol = hi + 1 < BUCKETS ? volumes[hi + 1] : 0;
+    const dnVol = lo - 1 >= 0     ? volumes[lo - 1] : 0;
+    if (upVol >= dnVol && hi + 1 < BUCKETS) { hi++; vaSet.add(hi); vaVol += upVol; }
+    else if (lo - 1 >= 0)                    { lo--; vaSet.add(lo); vaVol += dnVol; }
+    else break;
+  }
+
+  // Create canvas
+  const canvas       = document.createElement('canvas');
+  canvas.className   = 'vp-canvas';
+  canvas.width       = BAR_MAX_PX;
+  canvas.height      = chartHeight;
+  canvas.style.cssText = `position:absolute;top:0;right:${PRICE_AXIS}px;pointer-events:none;z-index:4;`;
+  container.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, BAR_MAX_PX, chartHeight);
+
+  for (let i = 0; i < BUCKETS; i++) {
+    if (volumes[i] === 0) continue;
+    const yTop = candleSeries.priceToCoordinate(minP + (i + 1) * bucketSize);
+    const yBot = candleSeries.priceToCoordinate(minP + i       * bucketSize);
+    if (yTop === null || yBot === null) continue;
+
+    const barH = Math.max(1, Math.round(yBot - yTop));
+    const barW = Math.round((volumes[i] / maxVol) * BAR_MAX_PX);
+
+    ctx.fillStyle =
+      i === pocIdx  ? 'rgba(251,191,36,0.85)'   // amber  — POC
+      : vaSet.has(i) ? 'rgba(139,92,246,0.55)'  // purple — value area
+                     : 'rgba(34,197,94,0.40)';  // green  — outside VA
+
+    ctx.fillRect(BAR_MAX_PX - barW, Math.round(yTop), barW, barH);
+  }
+}
+
 export default function CandleChart() {
   const { ticker, resolution, setResolution, pivotType, indicators } = useStore();
   const chartRef = useRef<HTMLDivElement>(null);
@@ -169,9 +249,23 @@ export default function CandleChart() {
 
       chart.timeScale().fitContent();
 
+      // Volume Profile overlay
+      const redrawVP = () => {
+        if (indicators.showVolumeProfile && chartRef.current)
+          drawVolumeProfile(candleSeries, candles, chartRef.current, 420);
+        else
+          chartRef.current?.querySelectorAll('.vp-canvas').forEach(el => el.remove());
+      };
+      redrawVP();
+      chart.timeScale().subscribeVisibleLogicalRangeChange(redrawVP);
+      chart.priceScale('right').applyOptions({}); // trigger initial coordinate resolution
+
       // Responsive resize
       const ro = new ResizeObserver(() => {
-        if (chartRef.current) chart.applyOptions({ width: chartRef.current.clientWidth });
+        if (chartRef.current) {
+          chart.applyOptions({ width: chartRef.current.clientWidth });
+          redrawVP();
+        }
       });
       if (chartRef.current) ro.observe(chartRef.current);
 

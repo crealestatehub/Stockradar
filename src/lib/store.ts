@@ -27,6 +27,7 @@ interface Indicators {
   showVWAP: boolean;
   showPivots: boolean;
   showSR: boolean;
+  showVolumeProfile: boolean;
 }
 
 interface AppState {
@@ -88,7 +89,8 @@ export const useStore = create<AppState>()(
         showMACD: false,
         showVWAP: true,
         showPivots: true,
-        showSR: true
+        showSR: true,
+        showVolumeProfile: true
       },
       toggleIndicator: (key) =>
         set((s) => ({ indicators: { ...s.indicators, [key]: !s.indicators[key] } })),

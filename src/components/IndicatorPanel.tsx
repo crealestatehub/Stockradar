@@ -16,7 +16,8 @@ const INDICATORS = [
   { key: 'showEMA50' as const, label: 'EMA 50', color: '#3b82f6', desc: 'Media Móvil Exponencial 50 períodos' },
   { key: 'showEMA200' as const, label: 'EMA 200', color: '#f97316', desc: 'Media Móvil Exponencial 200 períodos' },
   { key: 'showRSI' as const, label: 'RSI 14', color: '#e879f9', desc: 'Relative Strength Index (14 períodos)' },
-  { key: 'showMACD' as const, label: 'MACD', color: '#34d399', desc: 'MACD (12,26,9) — Moving Average Convergence Divergence' }
+  { key: 'showMACD' as const, label: 'MACD', color: '#34d399', desc: 'MACD (12,26,9) — Moving Average Convergence Divergence' },
+  { key: 'showVolumeProfile' as const, label: 'Vol. Profile', color: '#a78bfa', desc: 'Volume Profile: distribución de volumen por nivel de precio (POC + Value Area)' }
 ];
 
 export default function IndicatorPanel() {
