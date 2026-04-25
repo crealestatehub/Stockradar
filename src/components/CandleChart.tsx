@@ -107,6 +107,7 @@ export default function CandleChart() {
   const seriesRefs = useRef<Record<string, any>>({});
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
+  const ohlcvRef = useRef<HTMLDivElement>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,6 +202,52 @@ export default function CandleChart() {
         color: c.close >= c.open ? '#00d97e22' : '#ff4d4f22'
       })));
       seriesRefs.current.volume = volSeries;
+
+      // ── OHLCV crosshair readout ───────────────────────────────────
+      const fmtP = (n: number) => n < 1 ? n.toFixed(4) : n.toFixed(2);
+      const fmtV = (n: number) => {
+        if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+        if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+        if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+        return String(Math.round(n));
+      };
+      chart.subscribeCrosshairMove((param) => {
+        const el = ohlcvRef.current;
+        if (!el) return;
+        if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+          el.style.opacity = '0';
+          return;
+        }
+        const bar = param.seriesData.get(candleSeries) as any;
+        const volBar = param.seriesData.get(volSeries) as any;
+        if (!bar) { el.style.opacity = '0'; return; }
+
+        const { open, high, low, close } = bar;
+        const upC = '#00d97e', dnC = '#ff4d4f', lblC = '#4d6070', mutC = '#8b96ad';
+        const dirC = close >= open ? upC : dnC;
+        const vol = volBar?.value ?? 0;
+
+        // Bar timestamp → UTC date/time string
+        const t = param.time as number;
+        const d = new Date(t * 1000);
+        const hh = String(d.getUTCHours()).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        const dateStr = resolution === 'D' || resolution === 'W'
+          ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'UTC' })
+          : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} ${hh}:${mm}`;
+
+        const s = (lbl: string, val: string, vc: string, ml = 8) =>
+          `<span style="color:${lblC};margin-left:${ml}px">${lbl}</span><span style="color:${vc};margin-left:3px">${val}</span>`;
+
+        el.innerHTML =
+          `<span style="color:#3a4f62;margin-right:6px;font-size:10px">${dateStr}</span>` +
+          s('O', fmtP(open),  dirC, 0) +
+          s('H', fmtP(high),  upC) +
+          s('L', fmtP(low),   dnC) +
+          s('C', fmtP(close), dirC) +
+          s('Vol', fmtV(vol), mutC);
+        el.style.opacity = '1';
+      });
 
       if (indData) {
         // VWAP
@@ -365,8 +412,9 @@ export default function CandleChart() {
   return (
     <div className="card p-0 overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)]">
-        <div className="flex gap-1">
+      <div className="flex items-center px-4 py-2.5 border-b border-[var(--border)] gap-2">
+        {/* Resolution buttons */}
+        <div className="flex gap-1 flex-shrink-0">
           {RESOLUTIONS.map(r => (
             <button
               key={r.value}
@@ -381,7 +429,16 @@ export default function CandleChart() {
             </button>
           ))}
         </div>
-        <button onClick={() => fetchData()} className="text-[var(--text-dim)] hover:text-[var(--text)] transition-colors p-1 rounded" title="Actualizar">
+
+        {/* OHLCV crosshair readout — populated via ref, no re-renders */}
+        <div
+          ref={ohlcvRef}
+          className="flex-1 hidden md:block text-[11px] font-mono overflow-hidden whitespace-nowrap transition-opacity duration-100"
+          style={{ opacity: 0 }}
+        />
+
+        {/* Refresh */}
+        <button onClick={() => fetchData()} className="text-[var(--text-dim)] hover:text-[var(--text)] transition-colors p-1 rounded flex-shrink-0 ml-auto" title="Actualizar">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
         </button>
       </div>
