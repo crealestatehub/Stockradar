@@ -176,7 +176,7 @@ export default function CandleChart() {
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#212a3b' },
-        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false },
+        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false, minBarSpacing: 3 },
       });
       chartInstance.current = chart;
 
@@ -249,6 +249,21 @@ export default function CandleChart() {
         el.style.opacity = '1';
       });
 
+      // ── Initial zoom (must happen BEFORE indicators so sync propagates) ──────
+      // NOTE: fitContent() is intentionally NOT called for intraday — it compresses
+      // bars below ~3px each, causing lightweight-charts to suppress all tick labels.
+      // Instead we always set an explicit logical range so bar width stays readable.
+      {
+        const WINDOW: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
+        const w = WINDOW[resolution];
+        if (w) {
+          // Intraday: pin to last N bars (handles fewer bars than window via Math.max)
+          chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, candles.length - w), to: candles.length + 2 });
+        } else {
+          chart.timeScale().fitContent();
+        }
+      }
+
       if (indData) {
         // VWAP
         if (indicators.showVWAP && indData.vwap && indData.vwap.length > 0) {
@@ -301,8 +316,6 @@ export default function CandleChart() {
           });
         }
       }
-
-      chart.timeScale().fitContent();
 
       // ── RSI sub-chart ────────────────────────────────────────────
       let rsiChart: any = null;
@@ -369,15 +382,6 @@ export default function CandleChart() {
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
-
-      // For intraday resolutions fitContent() compresses all bars so tightly that
-      // lightweight-charts suppresses every tick label. Zoom to the last N bars so
-      // the time axis is readable. The sync above propagates the range to sub-charts.
-      const INTRADAY_WINDOW: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
-      const initBars = INTRADAY_WINDOW[resolution];
-      if (initBars && candles.length > initBars) {
-        chart.timeScale().setVisibleLogicalRange({ from: candles.length - initBars, to: candles.length + 2 });
-      }
 
       // Volume Profile overlay
       const redrawVP = () => {
