@@ -176,7 +176,22 @@ export default function CandleChart() {
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#212a3b' },
-        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false, minBarSpacing: 3 },
+        timeScale: {
+          borderColor: '#212a3b',
+          timeVisible: true,
+          secondsVisible: false,
+          minBarSpacing: 3,
+          tickMarkFormatter: (t: number) => {
+            const d = new Date(t * 1000);
+            const isIntra = ['1', '5', '15', '60'].includes(resolution);
+            if (isIntra) {
+              const h = String(d.getUTCHours()).padStart(2, '0');
+              const m = String(d.getUTCMinutes()).padStart(2, '0');
+              return `${h}:${m}`;
+            }
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+          },
+        },
       });
       chartInstance.current = chart;
 
@@ -248,21 +263,6 @@ export default function CandleChart() {
           s('Vol', fmtV(vol), mutC);
         el.style.opacity = '1';
       });
-
-      // ── Initial zoom (must happen BEFORE indicators so sync propagates) ──────
-      // NOTE: fitContent() is intentionally NOT called for intraday — it compresses
-      // bars below ~3px each, causing lightweight-charts to suppress all tick labels.
-      // Instead we always set an explicit logical range so bar width stays readable.
-      {
-        const WINDOW: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
-        const w = WINDOW[resolution];
-        if (w) {
-          // Intraday: pin to last N bars (handles fewer bars than window via Math.max)
-          chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, candles.length - w), to: candles.length + 2 });
-        } else {
-          chart.timeScale().fitContent();
-        }
-      }
 
       if (indData) {
         // VWAP
@@ -382,6 +382,24 @@ export default function CandleChart() {
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
+
+      // ── Set initial view AFTER sync is active so sub-charts receive the range ─
+      // For intraday: derive barSpacing from the target window so bars are always
+      // wide enough for lightweight-charts to render tick labels (min ~6 px/bar).
+      // fitContent() is avoided for intraday — it compresses 200-400 bars to <3 px
+      // each, which triggers the library's label-suppression heuristic.
+      {
+        const TARGET: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
+        const target = TARGET[resolution];
+        if (target) {
+          const usable = Math.max(200, (chartRef.current?.clientWidth ?? 800) - 60);
+          const bs = Math.max(6, usable / target);
+          chart.timeScale().applyOptions({ barSpacing: bs });
+          chart.timeScale().scrollToRealTime(); // fires sync → propagates to sub-charts
+        } else {
+          chart.timeScale().fitContent();
+        }
+      }
 
       // Volume Profile overlay
       const redrawVP = () => {
