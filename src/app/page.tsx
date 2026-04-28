@@ -11,6 +11,7 @@ import WatchlistSidebar from '@/components/WatchlistSidebar';
 import AuthModal from '@/components/AuthModal';
 import AnalysisHistory from '@/components/AnalysisHistory';
 import ScreenerPanel from '@/components/ScreenerPanel';
+import NewsPanel from '@/components/NewsPanel';
 
 interface FundSnapshot {
   fundamentals: any; metrics: any; squeeze: any; quote?: any;
@@ -218,6 +219,9 @@ export default function Dashboard() {
 
             {/* Candlestick chart */}
             <CandleChart />
+
+            {/* News panel (collapsible) */}
+            <NewsPanel />
 
             {/* Analysis history (collapsible) */}
             <AnalysisHistory />
