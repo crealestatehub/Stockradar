@@ -25,21 +25,29 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data } = await axios.get('https://query2.finance.yahoo.com/v1/finance/search', {
-      params: { q: symbol, quotesCount: 0, newsCount: 10, enableFuzzyQuery: false, lang: 'en-US' },
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+    const { data } = await axios.get('https://query1.finance.yahoo.com/v1/finance/search', {
+      params: { q: symbol, quotesCount: 0, newsCount: 10, enableFuzzyQuery: false },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://finance.yahoo.com',
+      },
       timeout: 10000,
     });
 
     const raw: any[] = data?.news ?? [];
-    const news: NewsItem[] = raw.map(n => ({
-      uuid: n.uuid,
-      title: n.title,
-      publisher: n.publisher,
-      link: n.link,
-      publishedAt: n.providerPublishTime,
-      thumbnail: n.thumbnail?.resolutions?.[0]?.url ?? null,
-    }));
+    const news: NewsItem[] = raw.map(n => {
+      const resolutions: any[] = n.thumbnail?.resolutions ?? [];
+      const thumb = resolutions.find(r => r.tag === '140x140') ?? resolutions[resolutions.length - 1] ?? null;
+      return {
+        uuid: n.uuid,
+        title: n.title,
+        publisher: n.publisher,
+        link: n.link,
+        publishedAt: n.providerPublishTime,
+        thumbnail: thumb?.url ?? null,
+      };
+    });
 
     cache.set(symbol, { data: news, ts: Date.now() });
     return NextResponse.json({ news, cachedAt: new Date().toISOString() });

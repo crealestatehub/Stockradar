@@ -383,24 +383,6 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
-      // ── Set initial view AFTER sync is active so sub-charts receive the range ─
-      // For intraday: derive barSpacing from the target window so bars are always
-      // wide enough for lightweight-charts to render tick labels (min ~6 px/bar).
-      // fitContent() is avoided for intraday — it compresses 200-400 bars to <3 px
-      // each, which triggers the library's label-suppression heuristic.
-      {
-        const TARGET: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
-        const target = TARGET[resolution];
-        if (target) {
-          const usable = Math.max(200, (chartRef.current?.clientWidth ?? 800) - 60);
-          const bs = Math.max(6, usable / target);
-          chart.timeScale().applyOptions({ barSpacing: bs });
-          chart.timeScale().scrollToRealTime(); // fires sync → propagates to sub-charts
-        } else {
-          chart.timeScale().fitContent();
-        }
-      }
-
       // Volume Profile overlay
       const redrawVP = () => {
         if (indicators.showVolumeProfile && chartRef.current)
@@ -410,7 +392,27 @@ export default function CandleChart() {
       };
       redrawVP();
       chart.timeScale().subscribeVisibleLogicalRangeChange(redrawVP);
-      chart.priceScale('right').applyOptions({}); // trigger initial coordinate resolution
+      // Trigger coordinate resolution BEFORE setting the view so the VP canvas
+      // is positioned correctly and nothing resets bar-spacing afterwards.
+      chart.priceScale('right').applyOptions({});
+
+      // ── Set initial view — deferred via rAF so it runs after all internal
+      // lightweight-charts initialization (layout, price-scale, VP canvas) is done.
+      // Placed last so nothing can override the bar spacing we set.
+      // For intraday: explicit barSpacing guarantees tick labels always render
+      // (fitContent compresses 200-400 bars to <3 px, suppressing all labels).
+      const rafId = requestAnimationFrame(() => {
+        const TARGET: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
+        const target = TARGET[resolution];
+        if (target && chartRef.current) {
+          const usable = Math.max(200, chartRef.current.clientWidth - 60);
+          const bs = Math.max(6, usable / target);
+          chart.timeScale().applyOptions({ barSpacing: bs });
+          chart.timeScale().scrollToRealTime();
+        } else {
+          chart.timeScale().fitContent();
+        }
+      });
 
       // Responsive resize
       const ro = new ResizeObserver(() => {
@@ -423,7 +425,7 @@ export default function CandleChart() {
       });
       if (chartRef.current) ro.observe(chartRef.current);
 
-      return () => { ro.disconnect(); try { chart.remove(); } catch {} rsiChart?.remove(); macdChart?.remove(); };
+      return () => { cancelAnimationFrame(rafId); ro.disconnect(); try { chart.remove(); } catch {} rsiChart?.remove(); macdChart?.remove(); };
     };
 
     const cleanup = setupChart().catch(() => {});
