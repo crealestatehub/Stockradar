@@ -446,10 +446,15 @@ export default function CandleChart() {
         const TARGET: Partial<Record<string, number>> = { '1': 120, '5': 96, '15': 64, '60': 48 };
         const target = TARGET[resolution];
         if (target && chartRef.current) {
-          const usable = Math.max(200, chartRef.current.clientWidth - 60);
+          const usable = Math.max(200, chartRef.current.clientWidth - 65);
           const bs = Math.max(6, usable / target);
           chart.timeScale().applyOptions({ barSpacing: bs });
-          chart.timeScale().scrollToRealTime();
+          // scrollToRealTime() scrolls to system clock which may be days ahead of
+          // the last market close — all bars end up off-screen to the left.
+          // Instead pin the last `target` bars to the right edge explicitly.
+          const from = Math.max(0, candles.length - target);
+          const to   = candles.length - 0.5;
+          chart.timeScale().setVisibleLogicalRange({ from, to });
         } else {
           chart.timeScale().fitContent();
         }
