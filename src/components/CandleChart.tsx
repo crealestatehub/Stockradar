@@ -112,7 +112,6 @@ export default function CandleChart() {
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [timeLabels, setTimeLabels] = useState<{ x: number; text: string }[]>([]);
   const [chartH] = useState(() => {
     if (typeof window === 'undefined') return 420;
     if (window.innerWidth < 768) return 280;
@@ -177,7 +176,7 @@ export default function CandleChart() {
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#212a3b' },
-        timeScale: { borderColor: '#212a3b', visible: false, minBarSpacing: 3 },
+        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false, minBarSpacing: 3 },
       });
       chartInstance.current = chart;
 
@@ -369,51 +368,6 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
-      // ── Custom time axis labels (React state — survives reconciliation)
-      const updateTimeAxis = () => {
-        try {
-          const chartEl = chartRef.current;
-          if (!chartEl || !candles.length) return;
-
-          const logRange = chart.timeScale().getVisibleLogicalRange();
-          if (!logRange) return;
-
-          const fromIdx = Math.max(0, Math.floor(logRange.from));
-          const toIdx   = Math.min(candles.length - 1, Math.ceil(logRange.to));
-          if (fromIdx >= toIdx) return;
-
-          const plotW   = chartEl.clientWidth - 65;
-          if (plotW <= 0) return;
-          const barSpan = logRange.to - logRange.from;
-          if (barSpan <= 0) return;
-          const barW = plotW / barSpan;
-
-          const isIntra = ['1', '5', '15', '60'].includes(resolution);
-          const targetLabels = Math.max(4, Math.floor(plotW / 90));
-          const step = Math.max(1, Math.round((toIdx - fromIdx + 1) / targetLabels));
-
-          const labels: { x: number; text: string }[] = [];
-          for (let i = fromIdx; i <= toIdx; i += step) {
-            const c = candles[i];
-            if (!c) continue;
-            const x = Math.round((i - logRange.from) * barW + barW / 2);
-            if (x < 20 || x > plotW - 20) continue;
-
-            const d = new Date(c.time * 1000);
-            let text: string;
-            if (isIntra) {
-              text = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-            } else {
-              text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-              const spanSec = (candles[toIdx]?.time ?? 0) - (candles[fromIdx]?.time ?? 0);
-              if (spanSec > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
-            }
-            labels.push({ x, text });
-          }
-          setTimeLabels(labels); // always sync state, even if empty
-        } catch {}
-      };
-      chart.timeScale().subscribeVisibleLogicalRangeChange(() => updateTimeAxis());
 
       // Volume Profile overlay
       const redrawVP = () => {
@@ -449,12 +403,6 @@ export default function CandleChart() {
         } else {
           chart.timeScale().fitContent();
         }
-        // Double rAF then 300 ms fallback — ensures layout is settled before
-        // querying timeToCoordinate() regardless of browser paint timing.
-        requestAnimationFrame(() => {
-          updateTimeAxis();
-          setTimeout(updateTimeAxis, 300);
-        });
       });
 
       // Responsive resize
@@ -462,7 +410,6 @@ export default function CandleChart() {
         if (chartRef.current) {
           chart.applyOptions({ width: chartRef.current.clientWidth });
           redrawVP();
-          requestAnimationFrame(updateTimeAxis);
         }
         if (rsiRef.current && rsiChart) rsiChart.applyOptions({ width: rsiRef.current.clientWidth });
         if (macdRef.current && macdChart) macdChart.applyOptions({ width: macdRef.current.clientWidth });
@@ -525,32 +472,6 @@ export default function CandleChart() {
           <div style={{ height: chartH }} className="flex items-center justify-center text-[var(--text-muted)] text-sm">{error}</div>
         )}
         <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
-      </div>
-
-      {/* Custom time axis — rendered via React state, never wiped by reconciliation */}
-      <div
-        className="relative border-t border-[var(--border)]"
-        style={{ height: 26, background: '#111722', overflow: 'hidden' }}
-      >
-        {timeLabels.map((lbl, i) => (
-          <span
-            key={i}
-            style={{
-              position: 'absolute',
-              left: lbl.x,
-              transform: 'translateX(-50%)',
-              whiteSpace: 'nowrap',
-              fontSize: 10,
-              lineHeight: '26px',
-              color: '#8b96ad',
-              fontFamily: "'JetBrains Mono', monospace",
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-          >
-            {lbl.text}
-          </span>
-        ))}
       </div>
 
       {/* RSI sub-chart */}
