@@ -176,22 +176,7 @@ export default function CandleChart() {
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#212a3b' },
-        timeScale: {
-          borderColor: '#212a3b',
-          timeVisible: true,
-          secondsVisible: false,
-          minBarSpacing: 3,
-          tickMarkFormatter: (t: number) => {
-            const d = new Date(t * 1000);
-            const isIntra = ['1', '5', '15', '60'].includes(resolution);
-            if (isIntra) {
-              const h = String(d.getUTCHours()).padStart(2, '0');
-              const m = String(d.getUTCMinutes()).padStart(2, '0');
-              return `${h}:${m}`;
-            }
-            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-          },
-        },
+        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false, minBarSpacing: 3 },
       });
       chartInstance.current = chart;
 
@@ -434,7 +419,7 @@ export default function CandleChart() {
   }, [candles, indData, indicators]);
 
   return (
-    <div className="card p-0 overflow-hidden">
+    <div className="card p-0 overflow-x-hidden">
       {/* Toolbar */}
       <div className="flex items-center px-4 py-2.5 border-b border-[var(--border)] gap-2">
         {/* Resolution buttons */}
@@ -480,7 +465,8 @@ export default function CandleChart() {
         {error && !loading && (
           <div style={{ height: chartH }} className="flex items-center justify-center text-[var(--text-muted)] text-sm">{error}</div>
         )}
-        <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
+        {/* Extra 30 px below chart height so time-axis canvas is never clipped */}
+        <div ref={chartRef} id="chart-container" style={{ height: chartH + 30 }} />
       </div>
 
       {/* RSI sub-chart */}
