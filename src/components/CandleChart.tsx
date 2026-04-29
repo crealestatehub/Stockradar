@@ -370,59 +370,62 @@ export default function CandleChart() {
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
       // ── Custom time axis labels ──────────────────────────────────
-      // Uses actual candle timestamps (guaranteed non-null from timeToCoordinate)
-      // and corrects for any left-offset between chartRef and timeAxisRef.
+      // Never clears innerHTML on failure — only writes when labels exist.
+      // Uses actual candle timestamps so timeToCoordinate() never returns null.
       const updateTimeAxis = () => {
-        const el = timeAxisRef.current;
-        const chartEl = chartRef.current;
-        if (!el || !chartEl || !candles.length) return;
+        try {
+          const el = timeAxisRef.current;
+          const chartEl = chartRef.current;
+          if (!el || !chartEl || !candles.length) return;
 
-        const chartRect = chartEl.getBoundingClientRect();
-        const axisRect = el.getBoundingClientRect();
-        const offsetX = chartRect.left - axisRect.left;
-        const axisW = axisRect.width || chartEl.clientWidth;
-        if (axisW < 50) return;
+          const chartRect = chartEl.getBoundingClientRect();
+          const axisRect  = el.getBoundingClientRect();
+          const offsetX   = chartRect.left - axisRect.left;
+          const axisW     = axisRect.width || chartEl.clientWidth;
+          if (axisW < 50) return;
 
-        const isIntra = ['1', '5', '15', '60'].includes(resolution);
-        const targetLabels = Math.max(4, Math.floor(axisW / 90));
+          const isIntra = ['1', '5', '15', '60'].includes(resolution);
+          const targetLabels = Math.max(4, Math.floor(axisW / 90));
 
-        const range = chart.timeScale().getVisibleRange();
-        if (!range) { el.innerHTML = ''; return; }
-        const fromT = range.from as number;
-        const toT = range.to as number;
-        if (!fromT || !toT || fromT >= toT) { el.innerHTML = ''; return; }
+          const range = chart.timeScale().getVisibleRange();
+          if (!range) return; // bail — keep whatever labels exist
 
-        const visible = candles.filter(c => c.time >= fromT && c.time <= toT);
-        if (!visible.length) { el.innerHTML = ''; return; }
+          const fromT = range.from as number;
+          const toT   = range.to   as number;
+          if (!fromT || !toT || fromT >= toT) return;
 
-        const step = Math.max(1, Math.round(visible.length / targetLabels));
-        const html: string[] = [];
+          const visible = candles.filter(c => c.time >= fromT && c.time <= toT);
+          if (!visible.length) return;
 
-        for (let i = 0; i < visible.length; i += step) {
-          const c = visible[i];
-          const raw = chart.timeScale().timeToCoordinate(c.time as any);
-          if (raw === null) continue;
-          const x = raw + offsetX;
-          if (x < 10 || x > axisW - 10) continue;
+          const step = Math.max(1, Math.round(visible.length / targetLabels));
+          const html: string[] = [];
 
-          const d = new Date(c.time * 1000);
-          let text: string;
-          if (isIntra) {
-            text = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-          } else {
-            text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-            if (toT - fromT > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
+          for (let i = 0; i < visible.length; i += step) {
+            const c   = visible[i];
+            const raw = chart.timeScale().timeToCoordinate(c.time as any);
+            if (raw === null) continue;
+            const x = raw + offsetX;
+            if (x < 10 || x > axisW - 10) continue;
+
+            const d = new Date(c.time * 1000);
+            let text: string;
+            if (isIntra) {
+              text = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+            } else {
+              text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+              if (toT - fromT > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
+            }
+            html.push(
+              `<span style="position:absolute;left:${Math.round(x)}px;transform:translateX(-50%);` +
+              `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
+              `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
+            );
           }
-          html.push(
-            `<span style="position:absolute;left:${Math.round(x)}px;transform:translateX(-50%);` +
-            `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
-            `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
-          );
-        }
-        el.innerHTML = html.join('');
+          // Only update DOM when we have something — never blank out existing labels
+          if (html.length > 0) el.innerHTML = html.join('');
+        } catch {}
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(() => updateTimeAxis());
-      chart.timeScale().subscribeVisibleTimeRangeChange(() => updateTimeAxis());
 
       // Volume Profile overlay
       const redrawVP = () => {
@@ -453,8 +456,12 @@ export default function CandleChart() {
         } else {
           chart.timeScale().fitContent();
         }
-        // Double rAF: give lightweight-charts one extra frame to finalize layout
-        requestAnimationFrame(updateTimeAxis);
+        // Double rAF then 300 ms fallback — ensures layout is settled before
+        // querying timeToCoordinate() regardless of browser paint timing.
+        requestAnimationFrame(() => {
+          updateTimeAxis();
+          setTimeout(updateTimeAxis, 300);
+        });
       });
 
       // Responsive resize
