@@ -370,47 +370,59 @@ export default function CandleChart() {
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
       // ── Custom time axis labels ──────────────────────────────────
+      // Uses actual candle timestamps (guaranteed non-null from timeToCoordinate)
+      // and corrects for any left-offset between chartRef and timeAxisRef.
       const updateTimeAxis = () => {
         const el = timeAxisRef.current;
-        if (!el || !chartRef.current) return;
-        const range = chart.timeScale().getVisibleRange();
-        if (!range) return;
-        const from = range.from as number;
-        const to = range.to as number;
-        if (!from || !to || from >= to) return;
-        const containerW = chartRef.current.clientWidth;
+        const chartEl = chartRef.current;
+        if (!el || !chartEl || !candles.length) return;
+
+        const chartRect = chartEl.getBoundingClientRect();
+        const axisRect = el.getBoundingClientRect();
+        const offsetX = chartRect.left - axisRect.left;
+        const axisW = axisRect.width || chartEl.clientWidth;
+        if (axisW < 50) return;
+
         const isIntra = ['1', '5', '15', '60'].includes(resolution);
-        const dur = to - from;
-        const nLabels = Math.max(3, Math.floor(containerW / 100));
-        const rawInterval = dur / nLabels;
-        const INTRA_STEPS = [60, 5 * 60, 15 * 60, 30 * 60, 3600, 2 * 3600, 4 * 3600, 6 * 3600, 12 * 3600];
-        const DAILY_STEPS = [86400, 7 * 86400, 14 * 86400, 30 * 86400, 91 * 86400, 182 * 86400, 365 * 86400];
-        const steps = isIntra ? INTRA_STEPS : DAILY_STEPS;
-        const interval = steps.find(s => s >= rawInterval) ?? steps[steps.length - 1];
+        const targetLabels = Math.max(4, Math.floor(axisW / 90));
+
+        const range = chart.timeScale().getVisibleRange();
+        if (!range) { el.innerHTML = ''; return; }
+        const fromT = range.from as number;
+        const toT = range.to as number;
+        if (!fromT || !toT || fromT >= toT) { el.innerHTML = ''; return; }
+
+        const visible = candles.filter(c => c.time >= fromT && c.time <= toT);
+        if (!visible.length) { el.innerHTML = ''; return; }
+
+        const step = Math.max(1, Math.round(visible.length / targetLabels));
         const html: string[] = [];
-        const firstT = Math.ceil(from / interval) * interval;
-        for (let t = firstT; t <= to; t += interval) {
-          const x = chart.timeScale().timeToCoordinate(t as any);
-          if (x === null || x < 24 || x > containerW - 24) continue;
-          const d = new Date(t * 1000);
+
+        for (let i = 0; i < visible.length; i += step) {
+          const c = visible[i];
+          const raw = chart.timeScale().timeToCoordinate(c.time as any);
+          if (raw === null) continue;
+          const x = raw + offsetX;
+          if (x < 10 || x > axisW - 10) continue;
+
+          const d = new Date(c.time * 1000);
           let text: string;
           if (isIntra) {
-            const hh = String(d.getUTCHours()).padStart(2, '0');
-            const mm = String(d.getUTCMinutes()).padStart(2, '0');
-            text = `${hh}:${mm}`;
+            text = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
           } else {
             text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-            if (dur > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
+            if (toT - fromT > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
           }
           html.push(
-            `<span style="position:absolute;left:${x.toFixed(0)}px;transform:translateX(-50%);` +
+            `<span style="position:absolute;left:${Math.round(x)}px;transform:translateX(-50%);` +
             `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
             `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
           );
         }
         el.innerHTML = html.join('');
       };
-      chart.timeScale().subscribeVisibleLogicalRangeChange(updateTimeAxis);
+      chart.timeScale().subscribeVisibleLogicalRangeChange(() => updateTimeAxis());
+      chart.timeScale().subscribeVisibleTimeRangeChange(() => updateTimeAxis());
 
       // Volume Profile overlay
       const redrawVP = () => {
@@ -441,7 +453,8 @@ export default function CandleChart() {
         } else {
           chart.timeScale().fitContent();
         }
-        updateTimeAxis();
+        // Double rAF: give lightweight-charts one extra frame to finalize layout
+        requestAnimationFrame(updateTimeAxis);
       });
 
       // Responsive resize
@@ -449,6 +462,7 @@ export default function CandleChart() {
         if (chartRef.current) {
           chart.applyOptions({ width: chartRef.current.clientWidth });
           redrawVP();
+          requestAnimationFrame(updateTimeAxis);
         }
         if (rsiRef.current && rsiChart) rsiChart.applyOptions({ width: rsiRef.current.clientWidth });
         if (macdRef.current && macdChart) macdChart.applyOptions({ width: macdRef.current.clientWidth });
