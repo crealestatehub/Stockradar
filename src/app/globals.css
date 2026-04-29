@@ -54,7 +54,6 @@ body {
 .positive { color: var(--green); }
 .negative { color: var(--red); }
 
-/* Chart container — no overflow:hidden here; it clips the time-axis canvas */
 #chart-container { border-radius: 8px; }
 
 /* Glow effects */

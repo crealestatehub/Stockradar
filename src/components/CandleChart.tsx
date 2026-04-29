@@ -108,6 +108,7 @@ export default function CandleChart() {
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const ohlcvRef = useRef<HTMLDivElement>(null);
+  const timeAxisRef = useRef<HTMLDivElement>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,7 +177,7 @@ export default function CandleChart() {
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
         rightPriceScale: { borderColor: '#212a3b' },
-        timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false, minBarSpacing: 3 },
+        timeScale: { borderColor: '#212a3b', visible: false, minBarSpacing: 3 },
       });
       chartInstance.current = chart;
 
@@ -312,7 +313,7 @@ export default function CandleChart() {
           grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
           crosshair: { mode: CrosshairMode.Normal },
           rightPriceScale: { borderColor: '#212a3b' },
-          timeScale: { borderColor: '#212a3b', timeVisible: false },
+          timeScale: { borderColor: '#212a3b', visible: false },
         });
         const rsiSeries = rsiChart.addLineSeries({ color: '#e879f9', lineWidth: 1, priceFormat: { type: 'price', precision: 1 } });
         const rsiData = candles
@@ -334,7 +335,7 @@ export default function CandleChart() {
           grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
           crosshair: { mode: CrosshairMode.Normal },
           rightPriceScale: { borderColor: '#212a3b' },
-          timeScale: { borderColor: '#212a3b', timeVisible: true, secondsVisible: false },
+          timeScale: { borderColor: '#212a3b', visible: false },
         });
         const histSeries = macdChart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'price', precision: 4 } });
         histSeries.setData(
@@ -368,6 +369,49 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
+      // ── Custom time axis labels ──────────────────────────────────
+      const updateTimeAxis = () => {
+        const el = timeAxisRef.current;
+        if (!el || !chartRef.current) return;
+        const range = chart.timeScale().getVisibleRange();
+        if (!range) return;
+        const from = range.from as number;
+        const to = range.to as number;
+        if (!from || !to || from >= to) return;
+        const containerW = chartRef.current.clientWidth;
+        const isIntra = ['1', '5', '15', '60'].includes(resolution);
+        const dur = to - from;
+        const nLabels = Math.max(3, Math.floor(containerW / 100));
+        const rawInterval = dur / nLabels;
+        const INTRA_STEPS = [60, 5 * 60, 15 * 60, 30 * 60, 3600, 2 * 3600, 4 * 3600, 6 * 3600, 12 * 3600];
+        const DAILY_STEPS = [86400, 7 * 86400, 14 * 86400, 30 * 86400, 91 * 86400, 182 * 86400, 365 * 86400];
+        const steps = isIntra ? INTRA_STEPS : DAILY_STEPS;
+        const interval = steps.find(s => s >= rawInterval) ?? steps[steps.length - 1];
+        const html: string[] = [];
+        const firstT = Math.ceil(from / interval) * interval;
+        for (let t = firstT; t <= to; t += interval) {
+          const x = chart.timeScale().timeToCoordinate(t as any);
+          if (x === null || x < 24 || x > containerW - 24) continue;
+          const d = new Date(t * 1000);
+          let text: string;
+          if (isIntra) {
+            const hh = String(d.getUTCHours()).padStart(2, '0');
+            const mm = String(d.getUTCMinutes()).padStart(2, '0');
+            text = `${hh}:${mm}`;
+          } else {
+            text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+            if (dur > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
+          }
+          html.push(
+            `<span style="position:absolute;left:${x.toFixed(0)}px;transform:translateX(-50%);` +
+            `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
+            `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
+          );
+        }
+        el.innerHTML = html.join('');
+      };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(updateTimeAxis);
+
       // Volume Profile overlay
       const redrawVP = () => {
         if (indicators.showVolumeProfile && chartRef.current)
@@ -397,6 +441,7 @@ export default function CandleChart() {
         } else {
           chart.timeScale().fitContent();
         }
+        updateTimeAxis();
       });
 
       // Responsive resize
@@ -419,7 +464,7 @@ export default function CandleChart() {
   }, [candles, indData, indicators]);
 
   return (
-    <div className="card p-0 overflow-x-hidden">
+    <div className="card p-0 overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center px-4 py-2.5 border-b border-[var(--border)] gap-2">
         {/* Resolution buttons */}
@@ -465,9 +510,15 @@ export default function CandleChart() {
         {error && !loading && (
           <div style={{ height: chartH }} className="flex items-center justify-center text-[var(--text-muted)] text-sm">{error}</div>
         )}
-        {/* Extra 30 px below chart height so time-axis canvas is never clipped */}
-        <div ref={chartRef} id="chart-container" style={{ height: chartH + 30 }} />
+        <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
       </div>
+
+      {/* Custom time axis */}
+      <div
+        ref={timeAxisRef}
+        className="relative border-t border-[var(--border)]"
+        style={{ height: 26, background: '#111722', overflow: 'hidden' }}
+      />
 
       {/* RSI sub-chart */}
       {indicators.showRSI && (
