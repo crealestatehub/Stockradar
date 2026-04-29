@@ -370,42 +370,39 @@ export default function CandleChart() {
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
       // ── Custom time axis labels ──────────────────────────────────
-      // Never clears innerHTML on failure — only writes when labels exist.
-      // Uses actual candle timestamps so timeToCoordinate() never returns null.
+      // Computes X purely from logical range + bar width — no timeToCoordinate()
+      // so there is no dependency on coordinate-system readiness.
       const updateTimeAxis = () => {
         try {
           const el = timeAxisRef.current;
           const chartEl = chartRef.current;
           if (!el || !chartEl || !candles.length) return;
 
-          const chartRect = chartEl.getBoundingClientRect();
-          const axisRect  = el.getBoundingClientRect();
-          const offsetX   = chartRect.left - axisRect.left;
-          const axisW     = axisRect.width || chartEl.clientWidth;
-          if (axisW < 50) return;
+          const logRange = chart.timeScale().getVisibleLogicalRange();
+          if (!logRange) return;
+
+          const fromIdx = Math.max(0, Math.floor(logRange.from));
+          const toIdx   = Math.min(candles.length - 1, Math.ceil(logRange.to));
+          if (fromIdx >= toIdx) return;
+
+          // Right price scale is ~65 px; plot area is the rest
+          const totalW  = chartEl.clientWidth;
+          const plotW   = totalW - 65;
+          const barSpan = logRange.to - logRange.from;
+          const barW    = plotW / barSpan;
 
           const isIntra = ['1', '5', '15', '60'].includes(resolution);
-          const targetLabels = Math.max(4, Math.floor(axisW / 90));
+          const targetLabels = Math.max(4, Math.floor(plotW / 90));
+          const visCount = toIdx - fromIdx + 1;
+          const step = Math.max(1, Math.round(visCount / targetLabels));
 
-          const range = chart.timeScale().getVisibleRange();
-          if (!range) return; // bail — keep whatever labels exist
-
-          const fromT = range.from as number;
-          const toT   = range.to   as number;
-          if (!fromT || !toT || fromT >= toT) return;
-
-          const visible = candles.filter(c => c.time >= fromT && c.time <= toT);
-          if (!visible.length) return;
-
-          const step = Math.max(1, Math.round(visible.length / targetLabels));
           const html: string[] = [];
-
-          for (let i = 0; i < visible.length; i += step) {
-            const c   = visible[i];
-            const raw = chart.timeScale().timeToCoordinate(c.time as any);
-            if (raw === null) continue;
-            const x = raw + offsetX;
-            if (x < 10 || x > axisW - 10) continue;
+          for (let i = fromIdx; i <= toIdx; i += step) {
+            const c = candles[i];
+            if (!c) continue;
+            // Center of bar i in the axis div coordinate space
+            const x = Math.round((i - logRange.from) * barW + barW / 2);
+            if (x < 20 || x > plotW - 20) continue;
 
             const d = new Date(c.time * 1000);
             let text: string;
@@ -413,15 +410,15 @@ export default function CandleChart() {
               text = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
             } else {
               text = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-              if (toT - fromT > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
+              const spanSec = (candles[toIdx]?.time ?? 0) - (candles[fromIdx]?.time ?? 0);
+              if (spanSec > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
             }
             html.push(
-              `<span style="position:absolute;left:${Math.round(x)}px;transform:translateX(-50%);` +
+              `<span style="position:absolute;left:${x}px;transform:translateX(-50%);` +
               `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
               `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
             );
           }
-          // Only update DOM when we have something — never blank out existing labels
           if (html.length > 0) el.innerHTML = html.join('');
         } catch {}
       };
