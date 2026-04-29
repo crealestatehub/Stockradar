@@ -108,7 +108,6 @@ export default function CandleChart() {
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const ohlcvRef = useRef<HTMLDivElement>(null);
-  const chartGenRef = useRef(0);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,8 +369,7 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
-      // ── Custom time axis labels (React state — avoids innerHTML wipe on re-render)
-      const gen = ++chartGenRef.current;
+      // ── Custom time axis labels (React state — survives reconciliation)
       const updateTimeAxis = () => {
         try {
           const chartEl = chartRef.current;
@@ -385,8 +383,10 @@ export default function CandleChart() {
           if (fromIdx >= toIdx) return;
 
           const plotW   = chartEl.clientWidth - 65;
+          if (plotW <= 0) return;
           const barSpan = logRange.to - logRange.from;
-          const barW    = plotW / barSpan;
+          if (barSpan <= 0) return;
+          const barW = plotW / barSpan;
 
           const isIntra = ['1', '5', '15', '60'].includes(resolution);
           const targetLabels = Math.max(4, Math.floor(plotW / 90));
@@ -410,8 +410,7 @@ export default function CandleChart() {
             }
             labels.push({ x, text });
           }
-          // Only update if this chart instance is still current
-          if (labels.length > 0 && chartGenRef.current === gen) setTimeLabels(labels);
+          setTimeLabels(labels); // always sync state, even if empty
         } catch {}
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(() => updateTimeAxis());
