@@ -108,11 +108,12 @@ export default function CandleChart() {
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const ohlcvRef = useRef<HTMLDivElement>(null);
-  const timeAxisRef = useRef<HTMLDivElement>(null);
+  const chartGenRef = useRef(0);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indData, setIndData] = useState<Indicators | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [timeLabels, setTimeLabels] = useState<{ x: number; text: string }[]>([]);
   const [chartH] = useState(() => {
     if (typeof window === 'undefined') return 420;
     if (window.innerWidth < 768) return 280;
@@ -369,14 +370,12 @@ export default function CandleChart() {
       chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncFrom(chart, r));
       subCharts.forEach(sub => sub.timeScale().subscribeVisibleLogicalRangeChange((r: any) => syncFrom(sub, r)));
 
-      // ── Custom time axis labels ──────────────────────────────────
-      // Computes X purely from logical range + bar width — no timeToCoordinate()
-      // so there is no dependency on coordinate-system readiness.
+      // ── Custom time axis labels (React state — avoids innerHTML wipe on re-render)
+      const gen = ++chartGenRef.current;
       const updateTimeAxis = () => {
         try {
-          const el = timeAxisRef.current;
           const chartEl = chartRef.current;
-          if (!el || !chartEl || !candles.length) return;
+          if (!chartEl || !candles.length) return;
 
           const logRange = chart.timeScale().getVisibleLogicalRange();
           if (!logRange) return;
@@ -385,22 +384,18 @@ export default function CandleChart() {
           const toIdx   = Math.min(candles.length - 1, Math.ceil(logRange.to));
           if (fromIdx >= toIdx) return;
 
-          // Right price scale is ~65 px; plot area is the rest
-          const totalW  = chartEl.clientWidth;
-          const plotW   = totalW - 65;
+          const plotW   = chartEl.clientWidth - 65;
           const barSpan = logRange.to - logRange.from;
           const barW    = plotW / barSpan;
 
           const isIntra = ['1', '5', '15', '60'].includes(resolution);
           const targetLabels = Math.max(4, Math.floor(plotW / 90));
-          const visCount = toIdx - fromIdx + 1;
-          const step = Math.max(1, Math.round(visCount / targetLabels));
+          const step = Math.max(1, Math.round((toIdx - fromIdx + 1) / targetLabels));
 
-          const html: string[] = [];
+          const labels: { x: number; text: string }[] = [];
           for (let i = fromIdx; i <= toIdx; i += step) {
             const c = candles[i];
             if (!c) continue;
-            // Center of bar i in the axis div coordinate space
             const x = Math.round((i - logRange.from) * barW + barW / 2);
             if (x < 20 || x > plotW - 20) continue;
 
@@ -413,13 +408,10 @@ export default function CandleChart() {
               const spanSec = (candles[toIdx]?.time ?? 0) - (candles[fromIdx]?.time ?? 0);
               if (spanSec > 180 * 86400) text += ` '${String(d.getUTCFullYear()).slice(2)}`;
             }
-            html.push(
-              `<span style="position:absolute;left:${x}px;transform:translateX(-50%);` +
-              `white-space:nowrap;font-size:10px;line-height:26px;color:#8b96ad;` +
-              `font-family:'JetBrains Mono',monospace;pointer-events:none;user-select:none">${text}</span>`
-            );
+            labels.push({ x, text });
           }
-          if (html.length > 0) el.innerHTML = html.join('');
+          // Only update if this chart instance is still current
+          if (labels.length > 0 && chartGenRef.current === gen) setTimeLabels(labels);
         } catch {}
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(() => updateTimeAxis());
@@ -536,12 +528,31 @@ export default function CandleChart() {
         <div ref={chartRef} id="chart-container" style={{ height: chartH }} />
       </div>
 
-      {/* Custom time axis */}
+      {/* Custom time axis — rendered via React state, never wiped by reconciliation */}
       <div
-        ref={timeAxisRef}
         className="relative border-t border-[var(--border)]"
         style={{ height: 26, background: '#111722', overflow: 'hidden' }}
-      />
+      >
+        {timeLabels.map((lbl, i) => (
+          <span
+            key={i}
+            style={{
+              position: 'absolute',
+              left: lbl.x,
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              fontSize: 10,
+              lineHeight: '26px',
+              color: '#8b96ad',
+              fontFamily: "'JetBrains Mono', monospace",
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          >
+            {lbl.text}
+          </span>
+        ))}
+      </div>
 
       {/* RSI sub-chart */}
       {indicators.showRSI && (
