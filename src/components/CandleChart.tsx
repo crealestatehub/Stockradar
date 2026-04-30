@@ -412,7 +412,30 @@ export default function CandleChart() {
       });
       if (chartRef.current) ro.observe(chartRef.current);
 
-      return () => { cancelAnimationFrame(rafId); ro.disconnect(); try { chart.remove(); } catch {} rsiChart?.remove(); macdChart?.remove(); };
+      // When the browser hides a tab it may report 0×0 to the ResizeObserver,
+      // collapsing the autoSize chart to nothing. Re-assert correct dimensions
+      // the moment the tab becomes visible again.
+      const onVisibilityChange = () => {
+        if (document.hidden || !chartRef.current) return;
+        const w = chartRef.current.clientWidth;
+        const h = chartRef.current.clientHeight;
+        if (w > 0 && h > 0) {
+          try {
+            chart.applyOptions({ autoSize: false, width: w, height: h });
+            requestAnimationFrame(() => { try { chart.applyOptions({ autoSize: true }); } catch {} });
+          } catch {}
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+
+      return () => {
+        cancelAnimationFrame(rafId);
+        ro.disconnect();
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        try { chart.remove(); } catch {}
+        rsiChart?.remove();
+        macdChart?.remove();
+      };
     };
 
     const cleanup = setupChart().catch(() => {});
