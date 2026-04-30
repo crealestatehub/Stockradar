@@ -1,10 +1,14 @@
 'use client';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { Star, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '@/lib/store';
 
+interface MiniQuote { symbol: string; price: number | null; changePct: number | null }
+
 export default function WatchlistSidebar() {
   const { user, watchlist, setWatchlist, removeFromWatchlist, ticker, setTicker, sidebarOpen, setSidebarOpen } = useStore();
+  const [prices, setPrices] = useState<Record<string, MiniQuote>>({});
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadWatchlist = useCallback(async () => {
     if (!user) return;
@@ -15,10 +19,31 @@ export default function WatchlistSidebar() {
 
   useEffect(() => { loadWatchlist(); }, [loadWatchlist]);
 
+  const fetchPrices = useCallback(async () => {
+    if (!watchlist.length) return;
+    const symbols = watchlist.map(w => w.ticker).join(',');
+    try {
+      const res = await fetch(`/api/stock/quotes?symbols=${symbols}`);
+      const data = await res.json();
+      const map: Record<string, MiniQuote> = {};
+      for (const q of data.quotes ?? []) map[q.symbol] = q;
+      setPrices(map);
+    } catch {}
+  }, [watchlist]);
+
+  useEffect(() => {
+    if (!watchlist.length || !sidebarOpen) return;
+    fetchPrices();
+    intervalRef.current = setInterval(fetchPrices, 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchPrices, watchlist, sidebarOpen]);
+
   const remove = async (t: string) => {
     removeFromWatchlist(t);
     await fetch(`/api/watchlist?ticker=${t}`, { method: 'DELETE' });
   };
+
+  const fmt = (n: number) => n >= 1000 ? n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : n.toFixed(2);
 
   return (
     <>
@@ -32,12 +57,10 @@ export default function WatchlistSidebar() {
 
       <aside className={[
         'flex flex-col border-r border-[var(--border)] bg-[var(--bg-elevated)] overflow-hidden transition-all duration-300',
-        // Mobile: fixed overlay below header
         'fixed top-12 bottom-0 left-0 z-40 w-52',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-        // Desktop: inline collapsible sidebar
         'md:relative md:top-auto md:bottom-auto md:z-auto md:translate-x-0 md:flex-shrink-0',
-        sidebarOpen ? 'md:w-48' : 'md:w-10',
+        sidebarOpen ? 'md:w-52' : 'md:w-10',
       ].join(' ')}>
         <div className="flex items-center justify-between px-2 py-3 border-b border-[var(--border)]">
           {sidebarOpen && (
@@ -64,28 +87,51 @@ export default function WatchlistSidebar() {
             {watchlist.length === 0 && user && (
               <div className="px-3 py-4 text-center text-[10px] text-[var(--text-dim)]">Sin tickers guardados</div>
             )}
-            {watchlist.map(item => (
-              <div
-                key={item.ticker}
-                className={`group flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
-                  ticker === item.ticker ? 'bg-[var(--bg-hover)] border-r-2 border-blue-500' : 'hover:bg-[var(--bg-hover)]'
-                }`}
-                onClick={() => {
-                  setTicker(item.ticker);
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
-                }}
-              >
-                <span className={`font-mono text-sm font-semibold ${ticker === item.ticker ? 'text-blue-400' : 'text-[var(--text)]'}`}>
-                  {item.ticker}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); remove(item.ticker); }}
-                  className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-400 transition-all"
+            {watchlist.map(item => {
+              const q = prices[item.ticker];
+              const positive = (q?.changePct ?? 0) >= 0;
+              return (
+                <div
+                  key={item.ticker}
+                  className={`group relative px-3 pt-2 pb-1.5 cursor-pointer transition-colors ${
+                    ticker === item.ticker
+                      ? 'bg-[var(--bg-hover)] border-r-2 border-blue-500'
+                      : 'hover:bg-[var(--bg-hover)]'
+                  }`}
+                  onClick={() => {
+                    setTicker(item.ticker);
+                    if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
+                  }}
                 >
-                  <Trash2 size={10} />
-                </button>
-              </div>
-            ))}
+                  {/* Row 1: ticker + delete */}
+                  <div className="flex items-center justify-between">
+                    <span className={`font-mono text-sm font-semibold leading-none ${
+                      ticker === item.ticker ? 'text-blue-400' : 'text-[var(--text)]'
+                    }`}>
+                      {item.ticker}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); remove(item.ticker); }}
+                      className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-400 transition-all flex-shrink-0"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+
+                  {/* Row 2: price + change */}
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="text-[10px] font-mono text-[var(--text-dim)]">
+                      {q?.price != null ? `$${fmt(q.price)}` : <span className="opacity-40">—</span>}
+                    </span>
+                    {q?.changePct != null && (
+                      <span className={`text-[10px] font-mono font-medium ${positive ? 'text-green-400' : 'text-red-400'}`}>
+                        {positive ? '+' : ''}{q.changePct.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </aside>

@@ -11,10 +11,32 @@ interface Quote {
 
 interface Props { onSaveAnalysis?: () => void }
 
+function getMarketStatus() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date());
+
+  const hour    = parseInt(parts.find(p => p.type === 'hour')?.value    ?? '0') % 24;
+  const minute  = parseInt(parts.find(p => p.type === 'minute')?.value  ?? '0');
+  const weekday = parts.find(p => p.type === 'weekday')?.value ?? '';
+  const mins    = hour * 60 + minute;
+  const weekend = weekday === 'Sat' || weekday === 'Sun';
+
+  if (!weekend && mins >= 9 * 60 + 30 && mins < 16 * 60)
+    return { label: 'Mercado Abierto', dot: 'bg-green-400', text: 'text-green-400', bg: 'bg-green-500/10 border-green-500/25'  };
+  if (!weekend && mins >= 4 * 60 && mins < 9 * 60 + 30)
+    return { label: 'Pre-market',      dot: 'bg-amber-400', text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/25'  };
+  if (!weekend && mins >= 16 * 60 && mins < 20 * 60)
+    return { label: 'After-hours',     dot: 'bg-amber-400', text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/25'  };
+  return       { label: 'Mercado Cerrado', dot: 'bg-red-500', text: 'text-red-400', bg: 'bg-red-500/10 border-red-500/25'      };
+}
+
 export default function QuoteBar({ onSaveAnalysis }: Props) {
   const { ticker, user, watchlist, addToWatchlist, removeFromWatchlist, setAuthModal } = useStore();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
+  const [market, setMarket] = useState(getMarketStatus);
 
   const isWatched = watchlist.some(w => w.ticker === ticker);
   const { trade, isLive } = useRealtimeQuote(ticker);
@@ -30,6 +52,12 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
   useEffect(() => { setLoading(true); fetchQuote(); }, [fetchQuote]);
   useEffect(() => { const id = setInterval(fetchQuote, 15_000); return () => clearInterval(id); }, [fetchQuote]);
 
+  // Refresh market status every minute
+  useEffect(() => {
+    const id = setInterval(() => setMarket(getMarketStatus()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const toggleWatchlist = async () => {
     if (!user) { setAuthModal('login'); return; }
     if (isWatched) {
@@ -44,10 +72,9 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
     }
   };
 
-  // Use WebSocket price when available, fall back to REST quote
-  const livePrice  = trade?.price ?? quote?.current ?? 0;
-  const baseClose  = quote?.prevClose ?? 0;
-  const liveChange = baseClose > 0 ? livePrice - baseClose : (quote?.change ?? 0);
+  const livePrice     = trade?.price ?? quote?.current ?? 0;
+  const baseClose     = quote?.prevClose ?? 0;
+  const liveChange    = baseClose > 0 ? livePrice - baseClose : (quote?.change ?? 0);
   const liveChangePct = baseClose > 0 ? (liveChange / baseClose) * 100 : (quote?.changePct ?? 0);
 
   const positive = liveChangePct >= 0;
@@ -67,7 +94,7 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
     <div className="flex flex-wrap items-center gap-3 md:gap-5">
       {/* Price */}
       <div className="flex items-baseline gap-2">
-        <span className={`font-mono text-2xl font-bold transition-colors ${isLive && trade ? 'text-[var(--text)]' : 'text-[var(--text)]'}`}>
+        <span className="font-mono text-2xl font-bold text-[var(--text)]">
           ${fmt(livePrice)}
         </span>
         <div className={`flex items-center gap-1 text-sm font-mono font-semibold ${positive ? 'text-[var(--accent-green)]' : 'text-[var(--accent-red)]'}`}>
@@ -84,12 +111,18 @@ export default function QuoteBar({ onSaveAnalysis }: Props) {
         <span>C <span className="text-[var(--text)]">${fmt(quote?.prevClose ?? 0)}</span></span>
       </div>
 
-      {/* Live indicator */}
+      {/* Live WS indicator */}
       <div className="flex items-center gap-1.5">
         <span className={`live-dot ${isLive ? '' : 'opacity-40'}`} />
         <span className="text-[10px] font-mono text-[var(--text-dim)] uppercase tracking-wider">
           {isLive ? 'WS Live' : 'Live'}
         </span>
+      </div>
+
+      {/* Market status */}
+      <div className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider ${market.bg}`}>
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${market.dot}`} />
+        <span className={market.text}>{market.label}</span>
       </div>
 
       {/* Actions */}
