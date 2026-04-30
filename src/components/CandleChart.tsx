@@ -120,8 +120,8 @@ export default function CandleChart() {
     return 420;
   });
 
-  const fetchData = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+  const fetchData = useCallback(async (signal?: AbortSignal, silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const res = await fetch(`/api/stock/candles?symbol=${ticker}&resolution=${resolution}&pivot=${pivotType}`, { signal, cache: 'no-store' });
@@ -133,7 +133,7 @@ export default function CandleChart() {
       if (e?.name === 'AbortError') return;
       setError('Error al cargar datos del gráfico');
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && !silent) setLoading(false);
     }
   }, [ticker, resolution, pivotType]);
 
@@ -154,7 +154,7 @@ export default function CandleChart() {
 
   // Auto-refresh every 30s
   useEffect(() => {
-    const id = setInterval(() => fetchData(), 30_000);
+    const id = setInterval(() => fetchData(undefined, true), 30_000);
     return () => clearInterval(id);
   }, [fetchData]);
 
