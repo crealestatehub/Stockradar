@@ -170,8 +170,7 @@ export default function CandleChart() {
       }
 
       const chart = createChart(chartRef.current!, {
-        width: chartRef.current!.clientWidth,
-        height: chartH,
+        autoSize: true,
         layout: { background: { color: '#111722' }, textColor: '#8b96ad' },
         grid: { vertLines: { color: '#1a2234' }, horzLines: { color: '#1a2234' } },
         crosshair: { mode: CrosshairMode.Normal },
@@ -405,12 +404,9 @@ export default function CandleChart() {
         }
       });
 
-      // Responsive resize
+      // Responsive resize — autoSize handles main chart; sub-charts need manual update
       const ro = new ResizeObserver(() => {
-        if (chartRef.current) {
-          chart.applyOptions({ width: chartRef.current.clientWidth });
-          redrawVP();
-        }
+        if (chartRef.current) redrawVP();
         if (rsiRef.current && rsiChart) rsiChart.applyOptions({ width: rsiRef.current.clientWidth });
         if (macdRef.current && macdChart) macdChart.applyOptions({ width: macdRef.current.clientWidth });
       });
