@@ -105,6 +105,7 @@ export default function CandleChart() {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
   const seriesRefs = useRef<Record<string, any>>({});
+  const chartConfigRef = useRef('');
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const ohlcvRef = useRef<HTMLDivElement>(null);
@@ -140,6 +141,7 @@ export default function CandleChart() {
     // Clear stale data immediately so the old chart doesn't linger
     setCandles([]);
     setIndData(null);
+    chartConfigRef.current = '';
     if (chartInstance.current) {
       try { chartInstance.current.remove(); } catch {}
       chartInstance.current = null;
@@ -160,7 +162,56 @@ export default function CandleChart() {
   useEffect(() => {
     if (typeof window === 'undefined' || candles.length === 0 || !chartRef.current) return;
 
+    const configKey = `${ticker}|${resolution}|${pivotType}|${JSON.stringify(indicators)}`;
+
+    // Data-only refresh (30-second tick, config unchanged)
+    if (configKey === chartConfigRef.current && chartInstance.current) {
+      const refs = seriesRefs.current;
+      try {
+        refs.candle?.setData(candles.map((c: Candle) => ({ time: c.time as any, open: c.open, high: c.high, low: c.low, close: c.close })));
+        refs.volume?.setData(candles.map((c: Candle) => ({ time: c.time as any, value: c.volume, color: c.close >= c.open ? '#00d97e22' : '#ff4d4f22' })));
+        if (indData) {
+          const mapEMA = (vals: number[]) => candles.map((c: Candle, i: number) => ({ time: c.time as any, value: vals[i] ?? c.close }));
+          refs.ema9?.setData(mapEMA(indData.ema9));
+          refs.ema20?.setData(mapEMA(indData.ema20));
+          refs.ema50?.setData(mapEMA(indData.ema50));
+          refs.ema200?.setData(mapEMA(indData.ema200));
+          if (indData.vwap?.length) {
+            refs.vwap?.setData(indData.vwap.map((v: VwapPoint) => ({ time: v.time as any, value: v.vwap })));
+            refs.vU1?.setData(indData.vwap.map((v: VwapPoint) => ({ time: v.time as any, value: v.upper1 })));
+            refs.vL1?.setData(indData.vwap.map((v: VwapPoint) => ({ time: v.time as any, value: v.lower1 })));
+            refs.vU2?.setData(indData.vwap.map((v: VwapPoint) => ({ time: v.time as any, value: v.upper2 })));
+            refs.vL2?.setData(indData.vwap.map((v: VwapPoint) => ({ time: v.time as any, value: v.lower2 })));
+          }
+          if (indData.rsi?.length) {
+            refs.rsi?.setData(
+              candles.map((c: Candle, i: number) => ({ time: c.time as any, value: indData!.rsi[i] }))
+                .filter((d: any) => typeof d.value === 'number' && isFinite(d.value) && d.value > 0 && d.value <= 100)
+            );
+          }
+          if (indData.macd?.macd?.length) {
+            refs.macdHist?.setData(
+              candles.map((c: Candle, i: number) => ({ time: c.time as any, value: indData!.macd.histogram[i] ?? 0, color: (indData!.macd.histogram[i] ?? 0) >= 0 ? '#00d97e55' : '#ff4d4f55' }))
+                .filter((d: any) => isFinite(d.value))
+            );
+            refs.macdLine?.setData(
+              candles.map((c: Candle, i: number) => ({ time: c.time as any, value: indData!.macd.macd[i] }))
+                .filter((d: any) => typeof d.value === 'number' && isFinite(d.value))
+            );
+            refs.macdSignal?.setData(
+              candles.map((c: Candle, i: number) => ({ time: c.time as any, value: indData!.macd.signal[i] }))
+                .filter((d: any) => typeof d.value === 'number' && isFinite(d.value))
+            );
+          }
+        }
+        if (indicators.showVolumeProfile && chartRef.current)
+          drawVolumeProfile(refs.candle, candles, chartRef.current, chartH);
+      } catch {}
+      return;
+    }
+
     const setupChart = async () => {
+      chartConfigRef.current = configKey;
       const { createChart, CrosshairMode, LineStyle } = await import('lightweight-charts');
       // Clean up existing
       if (chartInstance.current) {
@@ -261,6 +312,9 @@ export default function CandleChart() {
           vU2.setData(indData.vwap.map(v => ({ time: v.time as any, value: v.upper2 })));
           const vL2 = chart.addLineSeries({ color: '#06b6d412', lineWidth: 1, lineStyle: LineStyle.Dotted });
           vL2.setData(indData.vwap.map(v => ({ time: v.time as any, value: v.lower2 })));
+          seriesRefs.current.vwap = vwapSeries;
+          seriesRefs.current.vU1 = vU1; seriesRefs.current.vL1 = vL1;
+          seriesRefs.current.vU2 = vU2; seriesRefs.current.vL2 = vL2;
         }
 
         // EMAs
@@ -321,6 +375,7 @@ export default function CandleChart() {
         rsiSeries.createPriceLine({ price: 70, color: '#ff4d4f80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '70' });
         rsiSeries.createPriceLine({ price: 30, color: '#00d97e80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '30' });
         rsiSeries.createPriceLine({ price: 50, color: '#8b96ad30', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false, title: '' });
+        seriesRefs.current.rsi = rsiSeries;
       }
 
       // ── MACD sub-chart ───────────────────────────────────────────
@@ -353,6 +408,9 @@ export default function CandleChart() {
             .map((c, i) => ({ time: c.time as any, value: indData.macd.signal[i] }))
             .filter(d => typeof d.value === 'number' && isFinite(d.value))
         );
+        seriesRefs.current.macdHist = histSeries;
+        seriesRefs.current.macdLine = macdLine;
+        seriesRefs.current.macdSignal = signalLine;
       }
 
       // ── Sync time scales (main → sub-charts, bidirectional) ──────

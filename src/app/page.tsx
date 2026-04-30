@@ -48,7 +48,12 @@ export default function Dashboard() {
     }).catch(() => {});
   }, [setUser]);
 
-  useEffect(() => { setIsXL(window.innerWidth >= 1280); }, []);
+  useEffect(() => {
+    const update = () => setIsXL(window.innerWidth >= 1280);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
