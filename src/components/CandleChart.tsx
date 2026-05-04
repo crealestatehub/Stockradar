@@ -470,11 +470,11 @@ export default function CandleChart() {
       });
       if (chartRef.current) ro.observe(chartRef.current);
 
-      // When the browser hides a tab it may report 0×0 to the ResizeObserver,
-      // collapsing the autoSize chart to nothing. Re-assert correct dimensions
-      // the moment the tab becomes visible again.
-      const onVisibilityChange = () => {
-        if (document.hidden || !chartRef.current) return;
+      // autoSize can collapse to 0×0 when the browser throttles an inactive
+      // tab, the OS suspends the display, or the window loses focus.
+      // Bounce autoSize to force LWC to re-read the container dimensions.
+      const restoreChart = () => {
+        if (!chartRef.current) return;
         const w = chartRef.current.clientWidth;
         const h = chartRef.current.clientHeight;
         if (w > 0 && h > 0) {
@@ -484,12 +484,15 @@ export default function CandleChart() {
           } catch {}
         }
       };
+      const onVisibilityChange = () => { if (!document.hidden) restoreChart(); };
       document.addEventListener('visibilitychange', onVisibilityChange);
+      window.addEventListener('focus', restoreChart);
 
       return () => {
         cancelAnimationFrame(rafId);
         ro.disconnect();
         document.removeEventListener('visibilitychange', onVisibilityChange);
+        window.removeEventListener('focus', restoreChart);
         try { chart.remove(); } catch {}
         rsiChart?.remove();
         macdChart?.remove();
